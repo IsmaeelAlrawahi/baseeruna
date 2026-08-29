@@ -250,7 +250,11 @@
     page.appendChild(el('div.report-head', {},
       el('div', {},
         el('h2.report-day', {}, ProgramDays.dayName(date)),
-        el('p.report-date', {}, U.formatDate(date)))));
+        el('p.report-date', {}, U.formatDate(date))),
+      UI.button('تحديث', async () => {
+        if (window.Sync) await window.Sync.pullReportsForTeacher(me.id);
+        Router.render();
+      }, 'ghost', { icon: 'refresh' })));
 
     page.appendChild(dayStrip(date));
 
