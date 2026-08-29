@@ -80,6 +80,33 @@ window.Sync = (function () {
     return cloud;
   }
 
+  /* ── سحب كل تقارير طالب واحد ودمجها محليًا ── */
+  async function pullAllReportsForStudent(userId) {
+    if (!isOnline() || !userId) return [];
+    let cloud = [];
+    try { cloud = await window.SupabaseClient.getReportsForUsers([userId]) || []; }
+    catch (e) { console.warn('[Sync] pullAllReportsForStudent فشل', e); return []; }
+    for (const cr of cloud) {
+      try {
+        const local = {
+          id: cr.id, userId: cr.userId, date: cr.date,
+          userDate: cr.userDate || (cr.userId + '|' + cr.date),
+          quran: cr.quran || {}, poetry: cr.poetry || {},
+          reading: cr.reading || {}, qiyam: !!cr.qiyam,
+          note: cr.note || '', teacherNote: cr.teacherNote || '',
+          submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
+          teacherSeen: !!cr.teacherSeen,
+          updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
+        };
+        const existing = await DB.get('reports', local.id);
+        if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
+          await DB.put('reports', local);
+        }
+      } catch (e) { /* تجاهل سجل معطوب */ }
+    }
+    return cloud;
+  }
+
   /* ── سحب تقرير طالب واحد لتاريخ محدد ── */
   async function pullReportForStudent(userId, date) {
     if (!isOnline() || !userId || !date) return await Reports.get(userId, date);
@@ -109,6 +136,6 @@ window.Sync = (function () {
   return {
     isOnline,
     pushUser, pushReport,
-    pullTeacherRoster, pullReportsForTeacher, pullReportForStudent
+    pullTeacherRoster, pullReportsForTeacher, pullReportForStudent, pullAllReportsForStudent
   };
 })();

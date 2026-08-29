@@ -95,6 +95,18 @@
     const s = await Users.byId(params.id);
     if (!s) return UI.empty('الطالب غير موجود');
 
+    /* اسحب كل تقارير الطالب من السحابة قبل أي حساب (نتيجة/تغطية/دخول).
+       المحلي وحده قد يتأخر فلا تظهر النتائج الحقيقية. */
+    if (window.Sync) {
+      await window.Sync.pullAllReportsForStudent(s.id);
+      if (Session.user && Session.user.role === 'teacher') {
+        const me = Session.user;
+        const roster = await window.Sync.pullTeacherRoster(me.id);
+        const fresh = roster.find(r => r.id === s.id);
+        if (fresh) Object.assign(s, fresh);
+      }
+    }
+
     const page = UI.screen();
 
     /* header */
