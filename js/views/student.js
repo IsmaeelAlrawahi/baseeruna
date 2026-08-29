@@ -286,6 +286,11 @@
     const today = U.todayKey();
     const isDay = ProgramDays.isProgramDay(today);
     const date = isDay ? today : ProgramDays.lastProgramDay(today);
+    if (!isDay) {
+      return UI.card([UI.sectionTitle(T('todayTasks')),
+        UI.empty(T('notProgramDay') + ' — ' + T('programDaysAre'),
+          UI.button(T('openLastDay', U.formatDateShort(date)), () => Router.go('/report/' + date), 'primary'))], 'card--muted');
+    }
     const rec = await Reports.get(me.id, date);
     const targets = Object.assign({}, PROGRAM.targets, me.targets || {});
     const parts = Reports.scoreDay(rec, targets);
@@ -472,7 +477,8 @@
         });
       }
       if (audio.paused) {
-        Player.pause();
+        if (window.__voiceAudio && window.__voiceAudio !== audio) window.__voiceAudio.pause();
+        window.__voiceAudio = audio; Player.pause();
         audio.play();
         btn.replaceChildren(UI.icon('pause')); btn.classList.add('is-active');
       } else {
@@ -483,6 +489,8 @@
     btn.classList.add('voicebtn');
     return btn;
   }
+  window.StudentView = window.StudentView || {};
+  window.StudentView.voiceButton = voiceButton;
 
   /* ══════════════════ ENTRY EDITOR ══════════════════════ */
   async function openEntrySheet(existing) {
@@ -512,10 +520,12 @@
     function syncRange() {
       const s = QURAN.get(draft.surah);
       fromIn.max = toIn.max = s.ayahs;
-      if (+fromIn.value > s.ayahs) fromIn.value = 1;
-      if (+toIn.value > s.ayahs) toIn.value = s.ayahs;
-      draft.from = U.clamp(+fromIn.value || 1, 1, s.ayahs);
-      draft.to   = U.clamp(+toIn.value || 1, draft.from, s.ayahs);
+      let fv = +fromIn.value, tv = +toIn.value;
+      if (!Number.isFinite(fv)) fv = 1; if (!Number.isFinite(tv)) tv = s.ayahs;
+      if (fv > s.ayahs) fromIn.value = fv = 1;
+      if (tv > s.ayahs) toIn.value = tv = s.ayahs;
+      draft.from = U.clamp(fv, 1, s.ayahs);
+      draft.to   = U.clamp(tv, draft.from, s.ayahs);
       toIn.value = draft.to;
       rangeInfo.textContent =
         `${T('ayahCount')}: ${U.num(draft.to - draft.from + 1)} · ` +
@@ -562,10 +572,10 @@
 
     async function save(a) {
       syncRange();
-      /* Stop and store any recording still in progress. */
+      if (draft.date > U.todayKey()) return UI.toast('التاريخ لا يكون في المستقبل', 'warn');
       if (Recorder.recording) {
         const res = await Recorder.stop();
-        if (res) draft.voiceId = (await Voice.save({ userId: me.id, ...res })).id;
+        if (res) draft.pendingVoice = res;
       }
       if (draft.pendingVoice) {
         const v = await Voice.save({ userId: me.id, ...draft.pendingVoice });

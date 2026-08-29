@@ -250,18 +250,17 @@
     const isQiyamDay = ProgramDays.isQiyamDay(date);
     if (window.Sync) await window.Sync.pullReportsForTeacher(me.id);
     const students = await Users.students(me.id);
-    // تحديث لحظي: كل 30ث اسحب جديدًا وأعد الرسم إن بقيت على الصفحة
-    if (page._syncTimer) clearInterval(page._syncTimer);
-    page._syncTimer = setInterval(async () => {
-      if (!document.contains(page) || location.hash !== '#/t/day' && !location.hash.startsWith('#/t/day/')) {
-        clearInterval(page._syncTimer); return;
+    // تحديث لحظي كل 30ث — يُلغى عند مغادرة الصفحة عبر hashchange/visibility
+    const timer = setInterval(async () => {
+      if (!document.contains(page) || !(location.hash === '#/t/day' || location.hash.startsWith('#/t/day/'))) {
+        clearInterval(timer); return;
       }
-      if (window.Sync) {
-        await window.Sync.pullReportsForTeacher(me.id);
-        Router.render();
-      }
+      if (document.visibilityState !== 'visible') return;
+      if (window.Sync) { await window.Sync.pullReportsForTeacher(me.id); Router.render(); }
     }, 30000);
-    page.addEventListener('DOMNodeRemoved', () => clearInterval(page._syncTimer), { once: true });
+    const stopTimer = () => clearInterval(timer);
+    window.addEventListener('hashchange', stopTimer, { once: true });
+    page.addEventListener('DOMNodeRemoved', stopTimer, { once: true });
 
     page.appendChild(el('div.report-head', {},
       el('div', {},
@@ -281,17 +280,15 @@
 
     if (!students.length) { page.appendChild(UI.empty(T('empty'))); return page; }
 
+    const recs = await Promise.all(students.map(s => Reports.get(s.id, date)));
     const list = el('div.daylist');
-    for (const s of students) {
-      const rec = await Reports.get(s.id, date);
+    students.forEach((s, idx) => {
+      const rec = recs[idx];
       const targets = Object.assign({}, PROGRAM.targets, s.targets || {});
       const parts = Reports.scoreDay(rec, targets);
-      /* المعلّم يرى بنود اليوم كلها، وفيها قيام الليل في أيامه. */
       const dayItems = Reports.dayItems(date, { includePrivate: true });
       const done = dayItems.filter(i => (parts[i.key] || 0) >= 1).length;
-
       const row = el('article.dayrow-student' + (rec.submitted ? '.is-in' : ''), {});
-
       row.appendChild(el('div.dayrow-main', {
         onclick: () => Router.go(`/t/report/${s.id}/${date}`)
       },
@@ -307,24 +304,21 @@
           return el('i.pip' + (v >= 1 ? '.on' : (v > 0 ? '.half' : '')) +
                     (i.private ? '.pip--private' : ''), { title: i.name });
         }))));
-
-      /* قيام الليل — تُسجَّل من هنا مباشرة */
       if (isQiyamDay) {
         row.appendChild(el('button.qiyam-toggle' + (rec.qiyam ? '.is-on' : ''), {
           type: 'button', title: T('qiyam'),
           onclick: async ev => {
-            /* الزرّ يُمسَك قبل الانتظار — currentTarget يصير null بعده. */
             const btn = ev.currentTarget;
             const next = !rec.qiyam;
-            rec.qiyam = next;
-            btn.classList.toggle('is-on', next);
-            await Reports.save(s.id, date, { qiyam: next });
+            const prev = rec.qiyam;
+            rec.qiyam = next; btn.classList.toggle('is-on', next);
+            try { await Reports.save(s.id, date, { qiyam: next }); }
+            catch (e) { rec.qiyam = prev; btn.classList.toggle('is-on', prev); UI.toast('تعذر الحفظ', 'warn'); }
           }
         }, UI.icon('moon', 16), el('span', {}, T('qiyam'))));
       }
-
       list.appendChild(row);
-    }
+    });
     page.appendChild(list);
 
     const submitted = (await Reports.submittedOn(date)).length;
@@ -341,7 +335,8 @@
     const today = U.todayKey();
     return el('div.weekstrip', {}, days.map(d =>
       el('a.weekday' + (d === date ? '.is-current' : '') + (d > today ? '.is-future' : ''), {
-        href: d > today ? null : '#/t/day/' + d
+        href: d > today ? undefined : '#/t/day/' + d,
+        onclick: d > today ? (e => e.preventDefault()) : null
       },
         el('b', {}, ProgramDays.dayName(d)),
         el('span', {}, U.num(U.parseKey(d).getDate())))));

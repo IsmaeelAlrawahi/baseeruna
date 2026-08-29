@@ -804,12 +804,11 @@ window.Adhkar = {
     return rec;
   },
 
-  /* One tap forward; wraps back to zero once the target is met so
-     a student can start the same dhikr again. */
+  /* One tap forward; caps at target — reset is explicit. */
   async tap(userId, key, target) {
     const rec = await this.log(userId);
     const now = (rec.counts[key] || 0) + 1;
-    return this.setCount(userId, key, now > target ? 0 : now);
+    return this.setCount(userId, key, Math.min(now, target));
   },
 
   async resetCategory(userId, catId) {

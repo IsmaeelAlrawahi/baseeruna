@@ -155,6 +155,7 @@
     async function onTap() {
       const item = items[index];
       if (!item) return;
+      if (countOf(item) >= item.count) return;
       const before = countOf(item);
       log = await Adhkar.tap(viewingId, item.key, item.count);
 
@@ -184,19 +185,20 @@
       paintDots();
     }
 
-    /* سحب البطاقة يمينًا وشمالًا */
+    /* سحب البطاقة يمينًا وشمالًا — يتجاهل السحب العمودي */
     function enableSwipe(card) {
-      let x0 = null;
-      card.addEventListener('pointerdown', e => { x0 = e.clientX; });
+      let x0 = null, y0 = null;
+      card.style.touchAction = 'pan-y';
+      card.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; });
       card.addEventListener('pointerup', e => {
         if (x0 === null) return;
-        const dx = e.clientX - x0;
-        x0 = null;
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        x0 = y0 = null;
+        if (Math.abs(dy) > Math.abs(dx)) return;
         if (Math.abs(dx) < 60) return;
-        /* RTL: dragging right goes back, left goes forward. */
         move(dx > 0 ? -1 : 1);
       });
-      card.addEventListener('pointercancel', () => { x0 = null; });
+      card.addEventListener('pointercancel', () => { x0 = y0 = null; });
     }
 
     function paintDots() {

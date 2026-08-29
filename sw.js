@@ -8,7 +8,7 @@
    device picks the new version up.
    ============================================================ */
 
-const CACHE = 'basairuna-v33';
+const CACHE = 'basairuna-v34';
 
 /* نصّ المصحف (٢٫٦م) وpdf.js لا يدخلان في التثبيت الأول حتى لا
    يثقُل، بل يُحفظان أول مرة يُفتحان ثم يعملان بلا إنترنت. */
@@ -110,34 +110,19 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  /* Our own files: NETWORK-FIRST (administrative mode).
-     الإدارة تريد أحدث نسخة فورًا عند كل فتح، لذا نقرأ من الشبكة
-     أولًا دائمًا، ونحدّث الكاش أثناء ذلك، ولا نلتجئ إلى النسخة
-     المحفوظة إلا عند فقدان الاتصال (احتياطي فقط). هذا يضمن أن
-     أي تعديل يطرأ على السيرفر يصل لجميع الأجهزة فور مرورهم
-     بتحديث، دون انتظار رفع رقم إصدار يدوي في كل مرة. */
+  /* Shell: stale-while-revalidate — الإدارة تحصل على نسخة فورية
+     ويُحدّث الكاش في الخلفية، مع عرض الكاش أولاً لسرعة TTI. */
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(req, { ignoreSearch: true });
-
-    try {
-      const res = await fetch(req);
-      if (res && res.ok && res.type === 'basic') {
-        cache.put(req, res.clone());
-        return res;
-      }
-      /* Network responded but oddly (e.g. opaque/error): prefer the
-         cached copy when present, otherwise pass the response along. */
-      if (hit) return hit;
+    const fetchPromise = fetch(req).then(res => {
+      if (res && res.ok && res.type === 'basic') cache.put(req, res.clone());
       return res;
-    } catch (e) {
-      /* Offline: serve the cached copy; for a page navigation fall
-         back to the app shell so the hash router still takes over. */
-      if (hit) return hit;
-      if (req.mode === 'navigate') {
-        return (await cache.match('./index.html')) || Response.error();
-      }
-      return Response.error();
-    }
+    }).catch(() => null);
+    if (hit) { fetchPromise.then(() => {}); return hit; }
+    const res = await fetchPromise;
+    if (res) return res;
+    if (req.mode === 'navigate') return (await cache.match('./index.html')) || Response.error();
+    return Response.error();
   })());
 });
