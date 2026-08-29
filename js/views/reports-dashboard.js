@@ -55,9 +55,27 @@
         UI.button('تحديث', () => Router.render(), 'ghost', { icon: 'refresh' })
       ));
 
-      // جلب بيانات الطلاب
+      // جلب بيانات الطلاب (محليًا + من السحابة حتى يرى المعلم
+      // تقارير طلابه الذين أنشأ حساباتهم على أجهزة أخرى)
       const allUsers = await Users.all();
       const usersMap = new Map(allUsers.map(u => [u.id, u]));
+
+      if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
+        try {
+          const cloudStudents = await window.SupabaseClient.getAllStudents();
+          (cloudStudents || []).forEach(su => {
+            if (!usersMap.has(su.id)) {
+              usersMap.set(su.id, {
+                id: su.id, role: 'student',
+                name: su.name || su.id, color: su.color || '#666',
+                teacherId: su.teacherId || null, level: su.level
+              });
+            }
+          });
+        } catch (e) {
+          console.warn('[بصائرنا] تعذّر دمج طلاب السحابة', e);
+        }
+      }
 
       // تجميع التقارير حسب التاريخ
       const byDate = {};

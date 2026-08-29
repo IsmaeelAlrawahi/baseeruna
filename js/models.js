@@ -65,6 +65,12 @@ window.Users = {
       archived: false
     };
     await DB.put('users', user);
+    /* ادفع الحساب إلى السحابة (Supabase) حتى يُتاح على الأجهزة
+       الأخرى (مثلاً دخول الطالب برمزه من جهازه). */
+    if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
+      try { await window.SupabaseClient.upsertUser(user); }
+      catch (e) { console.warn('[بصائرنا] تعذّر مزامنة الحساب للسحابة', e); }
+    }
     return user;
   },
 
@@ -73,6 +79,10 @@ window.Users = {
     if (!u) return null;
     Object.assign(u, patch);
     await DB.put('users', u);
+    if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
+      try { await window.SupabaseClient.upsertUser(u); }
+      catch (e) { console.warn('[بصائرنا] تعذّر مزامنة تحديث الحساب', e); }
+    }
     return u;
   },
 

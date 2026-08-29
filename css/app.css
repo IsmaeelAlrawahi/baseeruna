@@ -1697,6 +1697,25 @@ html[data-theme="light"] .mushaf-frame { background: #FFFDF8; }
 }
 .signup-id b { display: block; font-family: var(--font-display); }
 .signup-id small { font-size: var(--fs-xs); color: var(--text-faint); }
+
+/* ══════════════════ ABOUT VERSION ═══════════════════════ */
+.meta { display: flex; flex-direction: column; gap: 10px; }
+.meta-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 10px; border-radius: var(--r); background: var(--surface-2);
+}
+.meta-k { font-size: var(--fs-sm); color: var(--text-faint); }
+.meta-v {
+  font-family: var(--font-display); font-size: var(--fs-sm);
+  color: var(--text); text-align: end;
+}
+.meta-v--state { display: inline-flex; align-items: center; gap: 8px; }
+.state-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex: none;
+  background: var(--text-faint);
+}
+.state-dot.state-ok { background: #2ecc71; box-shadow: 0 0 0 3px rgba(46,204,113,.18); }
+.state-dot.state-off { background: var(--text-faint); }
 .signup-photo { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; }
 
 /* ══════════════════ STATUS ON HOME ═════════════════════ */

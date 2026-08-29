@@ -42,6 +42,9 @@
     });
     page.appendChild(list);
 
+    /* ── تفاصيل النسخة الحالية (للتتبع) ──────────────────── */
+    page.appendChild(buildVersionCard());
+
     page.appendChild(el('div.rowbtns', {},
       UI.button(T('switchUser'), async () => {
         await Session.logout();
@@ -49,6 +52,38 @@
       }, 'ghost', { icon: 'logout' })));
 
     return page;
+  }
+
+  /* بطاقة تعرض تفاصيل النسخة الجارية على هذا الجهاز، ليسهل
+     التتبّع (مثلاً عند الشكوى أن جهازًا ما ما زال قديمًا). */
+  function buildVersionCard() {
+    const rows = [];
+    const push = (label, value) =>
+      rows.push(el('div.meta-row', {},
+        el('span.meta-k', {}, label),
+        el('span.meta-v', {}, value)));
+
+    push('إصدار التطبيق', CONFIG.app.version || '—');
+    push('إصدار الكاش', CONFIG.app.cacheVersion || '—');
+
+    const sb = window.SupabaseClient;
+    const sbState = (sb && sb.isConfigured)
+      ? el('span.state-dot.state-ok') : el('span.state-dot.state-off');
+    rows.push(el('div.meta-row', {},
+      el('span.meta-k', {}, 'اتصال Supabase'),
+      el('span.meta-v.meta-v--state', {},
+        sbState,
+        (sb && sb.isConfigured) ? 'متصل' : 'غير مُعدّ')));
+
+    push('المزامنة السحابية', (sb && sb.isConfigured)
+      ? 'عبر Supabase ✓' : 'محلية فقط');
+
+    return UI.card([
+      UI.sectionTitle('عن النسخة',
+        el('span.hint', {}, 'للأجهزة المثبتة')),
+      el('div.meta', {}, rows),
+      el('p.hint', {}, 'إصدار الكاش يحدّد أحدث نسخة الجارِية؛ أي تحديث أخفض منه يعني أن الجهاز محمّل نسخة قديمة.')
+    ]);
   }
 
   /* ── ملفي الشخصي: الاسم والصورة والشعار ───────────────── */

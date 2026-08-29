@@ -138,13 +138,133 @@
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // وظائف المستخدمين (Users)
+  // ═══════════════════════════════════════════════════════════
+
+  // يحذف الحقول غير المشتركة (كالصور كمحتوى Blob) قبل الإرسال.
+  function cleanUser(user) {
+    if (!user) return null;
+    const c = {
+      id: user.id,
+      role: user.role || 'student',
+      name: user.name || '',
+      pin: user.pin != null ? String(user.pin) : '',
+      code: user.code || null,
+      googleSub: user.googleSub || null,
+      googleEmail: user.googleEmail || null,
+      level: user.level != null ? user.level : 1,
+      photo: (typeof user.photo === 'string') ? user.photo : null,
+      selfSignup: !!user.selfSignup,
+      teacherId: user.teacherId || null,
+      color: user.color || null,
+      createdAt: user.createdAt != null ? user.createdAt : Date.now(),
+      lastActiveAt: user.lastActiveAt || null,
+      archived: !!user.archived,
+      updatedAt: user.updatedAt || Date.now()
+    };
+    return c;
+  }
+
+  async function upsertUser(user) {
+    const clean = cleanUser(user);
+    if (!clean || !clean.id) return null;
+    try {
+      const saveResponse = await fetch(`${API_URL}/users`, {
+        method: 'POST',
+        headers: {
+          ...headers(),
+          'Prefer': 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify(clean)
+      });
+      if (!saveResponse.ok) {
+        const errorText = await saveResponse.text();
+        console.error('[Supabase] users status:', saveResponse.status, errorText);
+        return null;
+      }
+      const saved = await saveResponse.json();
+      return saved[0] || saved || null;
+    } catch (error) {
+      console.error('[Supabase] فشل حفظ المستخدم:', error);
+      return null;
+    }
+  }
+
+  async function getUserById(userId) {
+    if (!isConfigured || !userId) return null;
+    try {
+      const response = await fetch(
+        `${API_URL}/users?id=eq.${encodeURIComponent(userId)}`,
+        { headers: headers() }
+      );
+      if (!response.ok) return null;
+      const rows = await response.json();
+      return rows[0] || null;
+    } catch (error) {
+      console.error('[Supabase] خطأ في جلب المستخدم:', error);
+      return null;
+    }
+  }
+
+  async function getUserByCode(code) {
+    if (!isConfigured || !code) return null;
+    try {
+      const response = await fetch(
+        `${API_URL}/users?code=eq.${encodeURIComponent(code)}&select=*`,
+        { headers: headers() }
+      );
+      if (!response.ok) return null;
+      const rows = await response.json();
+      return rows[0] || null;
+    } catch (error) {
+      console.error('[Supabase] خطأ في البحث عن الرمز:', error);
+      return null;
+    }
+  }
+
+  async function getUsersByTeacher(teacherId) {
+    if (!isConfigured || !teacherId) return [];
+    try {
+      const response = await fetch(
+        `${API_URL}/users?teacherId=eq.${encodeURIComponent(teacherId)}&archived=eq.false&order=name`,
+        { headers: headers() }
+      );
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (error) {
+      console.error('[Supabase] خطأ في جلب طلاب الحلقة:', error);
+      return [];
+    }
+  }
+
+  async function getAllStudents() {
+    if (!isConfigured) return [];
+    try {
+      const response = await fetch(
+        `${API_URL}/users?role=eq.student&archived=eq.false&select=*`,
+        { headers: headers() }
+      );
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (error) {
+      console.error('[Supabase] خطأ في جلب كل الطلاب:', error);
+      return [];
+    }
+  }
+
   // تصدير الوظائف
   window.SupabaseClient = {
     isConfigured,
     saveReport,
     getReportsByUser,
     getReportsByDate,
-    getAllSubmittedReports
+    getAllSubmittedReports,
+    upsertUser,
+    getUserById,
+    getUserByCode,
+    getUsersByTeacher,
+    getAllStudents
   };
 
   console.log('[Supabase]', isConfigured ? 'جاهز ✓' : 'غير مُعدّ - محلي فقط');

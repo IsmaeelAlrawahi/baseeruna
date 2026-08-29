@@ -49,7 +49,40 @@
     const err = el('p.pin-error');
 
     const submit = async () => {
-      const user = await Users.byCode(codeIn.value);
+      let user = await Users.byCode(codeIn.value);
+
+      /* لو لم نجده محليًا، نبحث في السحابة (لأن المعلم أنشأ
+         الحساب على جهازه وليس على هذا الجهاز). إن وُجد نحفظه
+         محليًا هنا حتى يعمل البرنامج كاملًا في وضع عدم الاتصال. */
+      if (!user && window.SupabaseClient && window.SupabaseClient.isConfigured) {
+        try {
+          const cloud = await window.SupabaseClient.getUserByCode(codeIn.value);
+          if (cloud) {
+            const local = {
+              id: cloud.id,
+              role: cloud.role || 'student',
+              name: cloud.name || '',
+              pin: cloud.pin != null ? String(cloud.pin) : '',
+              code: cloud.code || null,
+              googleSub: cloud.googleSub || null,
+              googleEmail: cloud.googleEmail || null,
+              level: cloud.level != null ? cloud.level : 1,
+              photo: null,
+              selfSignup: !!cloud.selfSignup,
+              teacherId: cloud.teacherId || null,
+              color: cloud.color || null,
+              createdAt: cloud.createdAt || Date.now(),
+              lastActiveAt: null,
+              archived: !!cloud.archived
+            };
+            await DB.put('users', local);
+            user = local;
+          }
+        } catch (e) {
+          console.warn('[بصائرنا] تعذّر البحث في السحابة', e);
+        }
+      }
+
       if (!user) { err.textContent = T('codeNotFound'); return; }
       if (user.pin) askPin(user);
       else enter(user);
