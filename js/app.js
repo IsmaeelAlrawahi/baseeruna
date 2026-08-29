@@ -22,15 +22,15 @@
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
         } catch (e) { console.warn('[بصائرنا] تعذّر مسح الكاش', e); }
-        localStorage.setItem(STORE_KEY, thisBuild);
-        /* لأن الـ service worker يستخدم stale-while-revalidate، كان يعرض
-           ملفات قديمة حتى بعد النسخة الجديدة. نعيد التحميل مرة واحدة هنا
-           حتى يشتغل فعلاً بأحدث الكود (إصلاح الدخول بالكود من الأجهزة الأخرى). */
+        /* لأن الـ SW يستخدم stale-while-revalidate، كان يعرض ملفات قديمة
+           حتى بعد النسخة الجديدة. نعيد التحميل مرة واحدة فقط. */
         if (sessionStorage.getItem('basairuna.reloaded') !== thisBuild) {
+          localStorage.setItem(STORE_KEY, thisBuild);
           sessionStorage.setItem('basairuna.reloaded', thisBuild);
           location.reload();
+          return;
         }
-        return;
+        localStorage.setItem(STORE_KEY, thisBuild);
       } else {
         localStorage.setItem(STORE_KEY, thisBuild);
       }

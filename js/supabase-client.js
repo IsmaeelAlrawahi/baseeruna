@@ -209,17 +209,30 @@
 
   async function getUserByCode(code) {
     if (!isConfigured || !code) return null;
+    const clean = String(code).trim().toUpperCase().replace(/\s/g, '');
+    if (!clean) return null;
     try {
-      const response = await fetch(
-        `${API_URL}/users?code=eq.${encodeURIComponent(code)}&select=*`,
+      let response = await fetch(
+        `${API_URL}/users?code=eq.${encodeURIComponent(clean)}&select=*`,
+        { headers: headers() }
+      );
+      if (!response.ok) {
+        console.warn('[Supabase] getUserByCode eq failed', response.status, await response.text().catch(() => ''));
+        return null;
+      }
+      let rows = await response.json();
+      if (rows[0]) return rows[0];
+      // fallback: غير حسّاس لحالة الأحرف (لو خُزّن الكود بحالة مختلفة)
+      response = await fetch(
+        `${API_URL}/users?code=ilike.${encodeURIComponent(clean)}&select=*`,
         { headers: headers() }
       );
       if (!response.ok) return null;
-      const rows = await response.json();
+      rows = await response.json();
       return rows[0] || null;
     } catch (error) {
       console.error('[Supabase] خطأ في البحث عن الرمز:', error);
-      return null;
+      throw error;
     }
   }
 

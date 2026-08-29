@@ -49,14 +49,17 @@
     const err = el('p.pin-error');
 
     const submit = async () => {
-      let user = await Users.byCode(codeIn.value);
+      const rawCode = String(codeIn.value || '').trim().toUpperCase().replace(/\s/g, '');
+      if (!rawCode) { err.textContent = T('codeNotFound'); return; }
+      err.textContent = 'جارٍ التحقق...';
+      let user = await Users.byCode(rawCode);
 
       /* لو لم نجده محليًا، نبحث في السحابة (لأن المعلم أنشأ
          الحساب على جهازه وليس على هذا الجهاز). إن وُجد نحفظه
          محليًا هنا حتى يعمل البرنامج كاملًا في وضع عدم الاتصال. */
       if (!user && window.SupabaseClient && window.SupabaseClient.isConfigured) {
         try {
-          const cloud = await window.SupabaseClient.getUserByCode(codeIn.value);
+          const cloud = await window.SupabaseClient.getUserByCode(rawCode);
           if (cloud) {
             const local = {
               id: cloud.id,
@@ -79,11 +82,17 @@
             user = local;
           }
         } catch (e) {
-          console.warn('[بصائرنا] تعذّر البحث في السحابة', e);
+          console.error('[بصائرنا] تعذّر البحث في السحابة', e);
+          err.textContent = 'تعذّر الاتصال بالسحابة: ' + (e.message || 'تحقق من الإنترنت');
+          return;
         }
+      } else if (!user && window.SupabaseClient && !window.SupabaseClient.isConfigured) {
+        err.textContent = 'السحابة غير مهيأة — لا يمكن البحث عن الكود من هذا الجهاز';
+        return;
       }
 
-      if (!user) { err.textContent = T('codeNotFound'); return; }
+      if (!user) { err.textContent = T('codeNotFound') + ' (' + rawCode + ')'; return; }
+      err.textContent = '';
       if (user.archived) { err.textContent = 'الحساب مؤرشف'; return; }
       if (user.pin) askPin(user);
       else enter(user);
@@ -217,12 +226,15 @@
     host.appendChild(el('div.form', {},
       hint, UI.field(T('loginCode'), codeIn),
       UI.button('دخول برمز الحلقة', async () => {
-        if (!window.SupabaseClient?.isConfigured) return UI.toast('السحابة غير مهيأة', 'warn');
-        const raw = codeIn.value.trim();
+        if (!window.SupabaseClient?.isConfigured) return UI.toast('السحابة غير مهيأة — فعّل Supabase', 'warn');
+        const raw = String(codeIn.value || '').trim().toUpperCase().replace(/\s/g, '');
         if (!raw) return UI.toast('اكتب رمز حلقتك أولًا', 'warn');
-        const found = await window.SupabaseClient.getUserByCode(raw);
+        UI.toast('جارٍ البحث عن ' + raw + '...', 'info');
+        let found;
+        try { found = await window.SupabaseClient.getUserByCode(raw); }
+        catch (e) { return UI.toast('تعذّر الاتصال بالسحابة: ' + (e.message || 'تحقق من النت'), 'warn'); }
         if (!found || found.role !== 'teacher') {
-          return UI.toast('لا يوجد معلّم بهذا الرمز، أو لم يُرفع حسابه بعد', 'warn');
+          return UI.toast('لا يوجد معلّم بهذا الرمز (' + raw + ') — تأكد من الحروف', 'warn');
         }
         /* احفظه محليًا ليظهر في القائمة من الآن. */
         const existing = await Users.byId(found.id);
