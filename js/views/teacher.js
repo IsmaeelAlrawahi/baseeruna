@@ -232,9 +232,20 @@
     const me = Session.user;
     const page = UI.screen();
     const isQiyamDay = ProgramDays.isQiyamDay(date);
-    // طبقة Sync الموحّدة تسحب roster + تقارير قبل العرض
     if (window.Sync) await window.Sync.pullReportsForTeacher(me.id);
     const students = await Users.students(me.id);
+    // تحديث لحظي: كل 30ث اسحب جديدًا وأعد الرسم إن بقيت على الصفحة
+    if (page._syncTimer) clearInterval(page._syncTimer);
+    page._syncTimer = setInterval(async () => {
+      if (!document.contains(page) || location.hash !== '#/t/day' && !location.hash.startsWith('#/t/day/')) {
+        clearInterval(page._syncTimer); return;
+      }
+      if (window.Sync) {
+        await window.Sync.pullReportsForTeacher(me.id);
+        Router.render();
+      }
+    }, 30000);
+    page.addEventListener('DOMNodeRemoved', () => clearInterval(page._syncTimer), { once: true });
 
     page.appendChild(el('div.report-head', {},
       el('div', {},
@@ -519,8 +530,9 @@
     });
   }
 
-  /* ══════════════════ REPORTS ═══════════════════════════ */
-  Router.register('/t/reports', {
+  /* ── تم نقل /t/reports إلى reports-dashboard.js (السحابة كمصدر حقيقة) ──
+     هذه الصفحة المحلية القديمة أصبحت /t/overview */
+  Router.register('/t/overview', {
     role: 'teacher',
     title: () => T('tabReports'),
     render: renderReports
