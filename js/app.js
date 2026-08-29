@@ -8,6 +8,35 @@
   const app = document.getElementById('app');
 
   try {
+    /* ── auto-update guard ──────────────────────────────
+       Administrative mode: every device must run the newest build.
+       We store the last build the device actually ran, then on each
+       boot compare it with the build baked into this code
+       (CONFIG.app.cacheVersion). If they differ, a newer/older build
+       is in play on the server, so we clear the stale service-worker
+       cache and force a full reload — no manual refresh needed. */
+    if ('caches' in window && location.protocol.startsWith('http')) {
+      const lastRan = await DB.setting('lastBuildVersion');
+      const thisBuild = CONFIG.app.cacheVersion;
+      if (lastRan && lastRan !== thisBuild) {
+        console.info('[بصائرنا] نسخة أحدث على السيرفر (' + thisBuild +
+          ')، تنظيف الكاش القديم (' + lastRan + ') وإعادة التحميل');
+        // أمسح كل كاش الـ service worker القديم كي لا يبقى ملف قديم.
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        } catch (e) {
+          console.warn('[بصائرنا] تعذّر مسح الكاش', e);
+        }
+        // سجّل أننا بصدد تحديث، وأعد التحميل بعد وقفة قصيرة ليتمكن
+        // السكربت الجديد من التسجيل.
+        await DB.setting('lastBuildVersion', thisBuild);
+        setTimeout(() => location.reload(), 120);
+        return;
+      }
+      await DB.setting('lastBuildVersion', thisBuild);
+    }
+
     /* ── storage ──────────────────────────────────────── */
     const mode = await DB.open();
     if (mode === 'memory') {
