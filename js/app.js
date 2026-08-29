@@ -63,19 +63,13 @@
       navigator.storage.persisted().then(p => { if (!p) navigator.storage.persist(); });
     }
 
-    /* ── first run ────────────────────────────────────── */
-    const users = await DB.all('users');
-    if (!users.length) {
-      const teacher = await Users.create({
-        name: CONFIG.firstRun.teacherName,
-        role: 'teacher',
-        pin: CONFIG.firstRun.teacherPin
-      });
+    /* ── first run ──────────────────────────────────────
+       لا نُنشئ معلمًا تلقائيًا أبدًا (كان هذا مصدر تراكم
+       معلمين مكررين عبر الأجهزة). المعلمون الحقيقيون يُنشؤون
+       صراحةً عبر «معلّم جديد» الذي يعطي لكلٍّ رمز حلقة خاص به. */
+    const hasAny = await DB.all('users');
+    if (!hasAny.length) {
       await DB.setting('firstRunAt', Date.now());
-      /* الكتب المرفقة تُزرع في المكتبة أول تشغيل. */
-      await Library.seed(teacher.id);
-      console.info('[بصائرنا] أُنشئ حساب المعلّم — الرمز السري:',
-        CONFIG.firstRun.teacherPin, '· رمز الدخول:', teacher.code);
     }
 
     /* ── migrations ───────────────────────────────────
