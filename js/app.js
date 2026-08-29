@@ -8,33 +8,48 @@
   const app = document.getElementById('app');
 
   try {
-    /* ── auto-update guard ──────────────────────────────
-       Administrative mode: every device must run the newest build.
-       We store the last build the device actually ran, then on each
-       boot compare it with the build baked into this code
-       (CONFIG.app.cacheVersion). If they differ, a newer/older build
-       is in play on the server, so we clear the stale service-worker
-       cache and force a full reload — no manual refresh needed. */
+    /* ── auto-update guard (v2: يمسح كل البيانات المحلية) ──
+       Administrative mode: every device must run the newest build
+       from a clean slate. We pin the last build in localStorage
+       (NOT IndexedDB, so it survives a wipe), and whenever the
+       running build differs we:
+         1) wipe ALL local data (IndexedDB + service-worker cache)
+         2) force a full reload
+       This clears any stale student/teacher rows left on devices
+       from earlier experimental versions, so the cloud is the only
+       trusted source going forward. */
     if ('caches' in window && location.protocol.startsWith('http')) {
-      const lastRan = await DB.setting('lastBuildVersion');
+      const STORE_KEY = 'basairuna.lastBuildVersion.v2';
+      const lastRan = localStorage.getItem(STORE_KEY);
       const thisBuild = CONFIG.app.cacheVersion;
       if (lastRan && lastRan !== thisBuild) {
-        console.info('[بصائرنا] نسخة أحدث على السيرفر (' + thisBuild +
-          ')، تنظيف الكاش القديم (' + lastRan + ') وإعادة التحميل');
-        // أمسح كل كاش الـ service worker القديم كي لا يبقى ملف قديم.
+        console.info('[بصائرنا] نسخة جديدة (' + thisBuild +
+          '): مسح جميع البيانات المحلية القديمة وإعادة التحميل');
+
+        // 1) امسح كل بيانات IndexedDB (تتضمّن الجدول المحلي).
+        try {
+          const dbs = await indexedDB.databases ? indexedDB.databases() : [];
+          const names = Array.isArray(dbs)
+            ? dbs.map(d => d.name)
+            : ['basairuna'];
+          for (const n of names) indexedDB.deleteDatabase(n);
+        } catch (e) {
+          console.warn('[بصائرنا] تعذّر مسح IndexedDB', e);
+        }
+        // 2) امسح كل كاش الـ service worker.
         try {
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
         } catch (e) {
           console.warn('[بصائرنا] تعذّر مسح الكاش', e);
         }
-        // سجّل أننا بصدد تحديث، وأعد التحميل بعد وقفة قصيرة ليتمكن
-        // السكربت الجديد من التسجيل.
-        await DB.setting('lastBuildVersion', thisBuild);
-        setTimeout(() => location.reload(), 120);
+
+        // سجّل النسخة الجديدة في localStorage وأعد التحميل.
+        localStorage.setItem(STORE_KEY, thisBuild);
+        setTimeout(() => location.reload(), 150);
         return;
       }
-      await DB.setting('lastBuildVersion', thisBuild);
+      localStorage.setItem(STORE_KEY, thisBuild);
     }
 
     /* ── storage ──────────────────────────────────────── */
