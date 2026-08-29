@@ -253,6 +253,21 @@
     }
   }
 
+  async function getAllTeachers() {
+    if (!isConfigured) return [];
+    try {
+      const response = await fetch(
+        `${API_URL}/users?role=eq.teacher&archived=eq.false&select=*`,
+        { headers: headers() }
+      );
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (error) {
+      console.error('[Supabase] خطأ في جلب المعلمين:', error);
+      return [];
+    }
+  }
+
   // تصدير الوظائف
   window.SupabaseClient = {
     isConfigured,
@@ -264,7 +279,8 @@
     getUserById,
     getUserByCode,
     getUsersByTeacher,
-    getAllStudents
+    getAllStudents,
+    getAllTeachers
   };
 
   console.log('[Supabase]', isConfigured ? 'جاهز ✓' : 'غير مُعدّ - محلي فقط');

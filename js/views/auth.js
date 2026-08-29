@@ -157,10 +157,40 @@
     });
   }
 
-  /* قائمة المعلّمين وحدهم — وهم قلّة معروفة. */
+  /* قائمة المعلّمين وحدهم — وهم قلّة معروفة.
+     نسحبهم من المحلي أيضًا ومن السحابة (حتى يجد المعلّم
+     حسابه إذا فتح التطبيق من جهازٍ لم يسجّل عليه من قبل). */
   async function showTeachers(host) {
     U.clear(host);
-    const teachers = await Users.teachers();
+    let teachers = await Users.teachers();
+
+    if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
+      try {
+        const cloud = await window.SupabaseClient.getAllTeachers();
+        const localIds = new Set(teachers.map(t => t.id));
+        for (const t of cloud || []) {
+          if (!localIds.has(t.id)) {
+            const local = {
+              id: t.id, role: 'teacher', name: t.name || '',
+              pin: t.pin != null ? String(t.pin) : '',
+              code: t.code || null,
+              googleSub: t.googleSub || null,
+              googleEmail: t.googleEmail || null,
+              level: t.level != null ? t.level : 1,
+              photo: null, selfSignup: !!t.selfSignup,
+              teacherId: t.teacherId || null,
+              color: t.color || null,
+              createdAt: t.createdAt || Date.now(),
+              lastActiveAt: null, archived: !!t.archived
+            };
+            await DB.put('users', local);
+            teachers.push(local);
+          }
+        }
+      } catch (e) {
+        console.warn('[بصائرنا] تعذّر جلب المعلمين من السحابة', e);
+      }
+    }
 
     host.appendChild(el('button.gate-back', {
       type: 'button', onclick: () => showLogin(host)
@@ -403,6 +433,36 @@
   }
 
   async function enter(user) {
+    /* إن كان معلّمًا، اسحب كل طلابه من السحابة وادمجهم محليًا
+       حتى يرى المعلّم حلقته كاملة حتى لو فتح من جهاز جديد. */
+    if (user.role === 'teacher' && window.SupabaseClient && window.SupabaseClient.isConfigured) {
+      try {
+        const cloudStudents = await window.SupabaseClient.getUsersByTeacher(user.id);
+        const existing = await Users.all();
+        const have = new Set(existing.map(u => u.id));
+        let added = 0;
+        for (const s of cloudStudents || []) {
+          if (s.role !== 'student' || have.has(s.id)) continue;
+          const local = {
+            id: s.id, role: 'student', name: s.name || '',
+            pin: s.pin != null ? String(s.pin) : '',
+            code: s.code || null, googleSub: s.googleSub || null,
+            googleEmail: s.googleEmail || null,
+            level: s.level != null ? s.level : 1,
+            photo: null, selfSignup: !!s.selfSignup,
+            teacherId: s.teacherId || user.id, color: s.color || null,
+            createdAt: s.createdAt || Date.now(), lastActiveAt: null,
+            archived: !!s.archived
+          };
+          await DB.put('users', local);
+          added++;
+        }
+        if (added) console.info('[بصائرنا] دُمج ' + added + ' طالب من السحابة');
+      } catch (e) {
+        console.warn('[بصائرنا] تعذّر دمج طلاب الحلقة من السحابة', e);
+      }
+    }
+
     await Session.login(user);
     document.body.dataset.role = user.role;
     Router.go(user.role === 'teacher' ? '/t/students' : '/home', { replace: true });
