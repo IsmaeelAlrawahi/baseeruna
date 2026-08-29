@@ -77,6 +77,11 @@
         }
       }
 
+      // زامن أحدث التقارير من السحابة إلى IndexedDB أولاً (تغذية الأستاذ الراجعة)
+      if (window.Sync && Session.user) {
+        await window.Sync.pullReportsForTeacher(Session.user.id);
+      }
+
       // تجميع التقارير حسب التاريخ
       const byDate = {};
       reports.forEach(r => {
@@ -86,6 +91,20 @@
 
       // ترتيب التواريخ من الأحدث للأقدم
       const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+      // عدد التقارير التي ما زالت بحاجة لردّ الأستاذ (لا ملاحظة بعد)
+      const unanswered = reports.length;
+      const answered = reports.filter(r => (r.teacherNote || '').trim()).length;
+
+      // شريط الوارد: يلخّص حالة التغذية الراجعة لدور المعلم
+      const inboxBar = el('div.inbox-bar', {},
+        el('div.inbox-stat', {}, el('b', {}, U.num(answered)), el('span', {}, 'تمّ الردّ')),
+        el('div.inbox-stat', {}, el('b', {}, U.num(unanswered - answered)), el('span', {}, 'بانتظار الردّ')));
+      page.appendChild(UI.card([el('div.inbox-head', {},
+        el('div', {},
+          el('h3', {}, 'الوارد — تغذية الأستاذ الراجعة'),
+          el('p.hint', {}, 'انقر على أي تقرير لفتحه وكتابة/تعديل ملاحظة الأستاذ')),
+        inboxBar)], 'card--inbox'));
 
       // عرض التقارير مجموعة حسب التاريخ
       dates.forEach(date => {
@@ -105,6 +124,7 @@
           const user = usersMap.get(report.userId);
           const userName = user ? user.name : report.userId;
           const userColor = user ? user.color : '#666';
+          const hasReply = !!(report.teacherNote && report.teacherNote.trim());
 
           const reportItem = el('div.report-item', {
             onclick: () => {
@@ -115,13 +135,19 @@
               style: `background: ${userColor}`
             }, userName.charAt(0)),
             el('div.report-item-content', {},
-              el('div.report-item-name', {}, userName),
+              el('div.report-item-name', {},
+                userName,
+                hasReply ? UI.badge('تمّ ردّ الأستاذ', 'ok') : UI.badge('بدون ردّ', 'soft')),
               el('div.report-item-stats', {},
                 el('span', {}, `قرآن: ${report.quran?.memorized || 0} صفحة`),
                 el('span', {}, `شعر: ${report.poetry?.verses || 0} بيت`),
                 el('span', {}, `قراءة: ${report.reading?.minutes || 0} دقيقة`)
               ),
-              report.note ? el('p.report-item-note', {}, report.note) : null
+              report.note ? el('p.report-item-note', {}, report.note) : null,
+              hasReply
+                ? el('div.entry-comment.teacher-reply', {},
+                    el('b', {}, 'ملاحظة الأستاذ: '), el('span', {}, report.teacherNote))
+                : el('p.hint', {}, 'لم يكتب الأستاذ ملاحظة بعد — انقر للردّ')
             ),
             el('div.report-item-meta', {},
               UI.badge('مُرسَل', 'ok'),

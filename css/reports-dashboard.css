@@ -115,6 +115,35 @@
   font-size: 0.875rem;
 }
 
+.card--inbox {
+  margin-bottom: 1.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--line-strong);
+}
+
+.inbox-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.inbox-head h3 { margin: 0; }
+.inbox-head .hint { margin: 0.25rem 0 0; font-size: 0.85rem; }
+
+.inbox-bar { display: flex; gap: 0.75rem; }
+.inbox-stat {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0.6rem 0.9rem; background: var(--bg-primary);
+  border-radius: 10px; min-width: 64px;
+}
+.inbox-stat b { font-size: 1.25rem; color: var(--accent); }
+.inbox-stat span { font-size: 0.75rem; color: var(--text-secondary); }
+
+.report-item-name { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.teacher-reply {
+  margin-top: 0.5rem; padding: 0.55rem 0.7rem;
+  background: var(--bg-primary); border-right: 3px solid var(--gold);
+  border-radius: 8px; font-size: 0.875rem; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.teacher-reply b { color: var(--text-gold); }
+
 @media (max-width: 600px) {
   .report-item {
     flex-direction: column;
@@ -131,4 +160,6 @@
   .report-item-stats {
     font-size: 0.8rem;
   }
+
+  .inbox-head { flex-direction: column; align-items: flex-start; }
 }
