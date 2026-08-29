@@ -268,6 +268,29 @@
     }
   }
 
+  // يجلب كل تقارير قائمة طلاب محدّدين (مهمة لشاشات المعلّم التي
+  // تعتمد على النسخ المحلية). يستخدم userId=in.(...) دفعة واحدة.
+  async function getReportsForUsers(userIds) {
+    if (!isConfigured || !userIds || !userIds.length) return [];
+    try {
+      const list = Array.from(new Set(userIds)).filter(Boolean);
+      if (!list.length) return [];
+      const inClause = encodeURIComponent(list.join(','));
+      const response = await fetch(
+        `${API_URL}/reports?userId=in.(${inClause})&order=date.desc&limit=1000`,
+        { headers: headers() }
+      );
+      if (!response.ok) {
+        console.error('[Supabase] getReportsForUsers status:', response.status);
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('[Supabase] خطأ في جلب تقارير الطلاب:', error);
+      return [];
+    }
+  }
+
   // تصدير الوظائف
   window.SupabaseClient = {
     isConfigured,
@@ -280,7 +303,8 @@
     getUserByCode,
     getUsersByTeacher,
     getAllStudents,
-    getAllTeachers
+    getAllTeachers,
+    getReportsForUsers
   };
 
   console.log('[Supabase]', isConfigured ? 'جاهز ✓' : 'غير مُعدّ - محلي فقط');

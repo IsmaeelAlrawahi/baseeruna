@@ -492,6 +492,43 @@
           added++;
         }
         if (added) console.info('[بصائرنا] دُمج ' + added + ' طالب من السحابة');
+
+        /* اسحب كل تقارير طلاب الحلقة من السحابة وأدمجها في
+           الذاكرة المحلية، حتى تعمل كل شاشات المعلّم (صندوق
+           الوارد، تقارير اليوم، صفحة الطالب) بشكل صحيح حتى لو
+           أرسل الطالب من جهازٍ آخر. */
+        const allStudents = await Users.students(user.id);
+        const ids = allStudents.map(s => s.id);
+        const cloudReports = await window.SupabaseClient.getReportsForUsers(ids);
+        let repCount = 0;
+        for (const cr of cloudReports || []) {
+          try {
+            const local = {
+              id: cr.id,
+              userId: cr.userId,
+              date: cr.date,
+              userDate: cr.userDate || (cr.userId + '|' + cr.date),
+              quran: cr.quran || {},
+              poetry: cr.poetry || {},
+              reading: cr.reading || {},
+              qiyam: !!cr.qiyam,
+              note: cr.note || '',
+              teacherNote: cr.teacherNote || '',
+              submitted: !!cr.submitted,
+              submittedAt: cr.submittedAt || null,
+              teacherSeen: !!cr.teacherSeen,
+              updatedAt: cr.updatedAt || Date.now(),
+              createdAt: cr.createdAt || Date.now()
+            };
+            /* لا نستبدل نسخة أحدث محلية إن وُجدت. */
+            const existing = await DB.get('reports', local.id);
+            if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
+              await DB.put('reports', local);
+              repCount++;
+            }
+          } catch (e) { /* تجاهل أي سجل مفرد معطوب */ }
+        }
+        if (repCount) console.info('[بصائرنا] مُزج ' + repCount + ' تقرير من السحابة');
       } catch (e) {
         console.warn('[بصائرنا] تعذّر مزامنة بيانات المعلّم/الحلقة', e);
       }
