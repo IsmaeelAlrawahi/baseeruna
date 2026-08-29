@@ -1,0 +1,152 @@
+/* ============================================================
+   بصائرنا — Design tokens
+   Palette sampled from the app logo: deep teal, gold, near-black.
+   Change any value here and the whole app follows.
+   ============================================================ */
+
+:root {
+  /* ── Brand ────────────────────────────────────────────── */
+  --teal-900: #04100D;
+  --teal-800: #071A16;
+  --teal-700: #0A2620;
+  --teal-600: #0D3A31;
+  --teal-500: #0B7A68;
+  --teal-400: #109C86;
+  --teal-300: #21C0A6;
+  --teal-200: #6FDCC8;
+
+  --gold-600: #A9761F;
+  --gold-500: #C99B33;
+  --gold-400: #E3B457;
+  --gold-300: #F0CC80;
+  --gold-200: #F7E3B4;
+
+  /* ── Semantic surfaces (dark = default, matches the logo) ── */
+  --bg:          #05100E;
+  --bg-deep:     #030A09;
+  --surface:     #0A1B17;
+  --surface-2:   #0E2620;
+  --surface-3:   #143229;
+  --line:        rgba(111, 220, 200, .13);
+  --line-strong: rgba(111, 220, 200, .28);
+
+  --text:        #EAF5F1;
+  --text-soft:   #A8C4BC;
+  --text-faint:  #6D8A83;
+
+  --accent:      var(--teal-400);
+  --accent-soft: rgba(16, 156, 134, .16);
+  --gold:        var(--gold-400);
+  --gold-soft:   rgba(227, 180, 87, .14);
+
+  /* ── Text that sits on a coloured ground, and coloured text
+     that sits on the page. The brand ramp alone is not enough:
+     a gold that reads beautifully on near-black disappears on
+     parchment, so these are remapped per theme. ───────────── */
+  --text-gold: var(--gold-200);   /* أسماء وآيات وشعارات */
+  --text-teal: var(--teal-200);
+  --on-accent: #04100D;           /* نصّ فوق الأخضر */
+  --on-gold:   #241704;           /* نصّ فوق الذهبي */
+
+  --ok:      #2FBF71;
+  --ok-soft: rgba(47, 191, 113, .15);
+  --warn:      #E0A32E;
+  --warn-soft: rgba(224, 163, 46, .15);
+  --danger:      #E0574B;
+  --danger-soft: rgba(224, 87, 75, .15);
+
+  /* ── Salah tree ───────────────────────────────────────── */
+  --bark:        #2B1F14;
+  --bark-light:  #46331F;
+  --leaf-empty:  #22332E;
+  --leaf-fard:   var(--teal-300);
+  --leaf-extra:  var(--gold-400);
+  /* a withered leaf — a fard prayer that passed unrecorded */
+  --leaf-missed:      #C6382C;
+  --leaf-missed-deep: #6E1B14;
+
+  /* ── Type ─────────────────────────────────────────────── */
+  --font-display: 'Reem Kufi', 'Tajawal', system-ui, sans-serif;   /* titles, app name */
+  --font-ui:      'Tajawal', system-ui, 'Segoe UI', sans-serif;    /* body, buttons, data */
+  --font-quran:   'Amiri Quran', 'Traditional Arabic', serif;      /* ayah text */
+  --font-quote:   'Aref Ruqaa', 'Amiri Quran', serif;              /* motivation, du'a */
+
+  --fs-xs:   .75rem;
+  --fs-sm:   .85rem;
+  --fs-base: .97rem;
+  --fs-md:   1.1rem;
+  --fs-lg:   1.3rem;
+  --fs-xl:   1.65rem;
+  --fs-2xl:  2.1rem;
+
+  /* ── Shape & motion ───────────────────────────────────── */
+  --r-sm: 10px;
+  --r:    16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  --pad: 16px;
+  --gap: 12px;
+
+  --shadow-1: 0 2px 10px rgba(0,0,0,.35);
+  --shadow-2: 0 8px 28px rgba(0,0,0,.45);
+  --shadow-gold: 0 0 0 1px rgba(227,180,87,.25), 0 6px 20px rgba(227,180,87,.10);
+  --shadow-teal: 0 0 0 1px rgba(33,192,166,.22), 0 6px 22px rgba(16,156,134,.14);
+
+  --ease: cubic-bezier(.22,.61,.36,1);
+  --dur: .22s;
+
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --topbar-h: 58px;
+  --tabbar-h: 62px;
+
+  color-scheme: dark;
+}
+
+/* ── Light theme ───────────────────────────────────────────
+   Same brand hues, lifted onto warm parchment.               */
+html[data-theme="light"] {
+  --bg:        #F6F2E9;
+  --bg-deep:   #EDE6D8;
+  --surface:   #FFFFFF;
+  --surface-2: #FBF7EE;
+  --surface-3: #F1EADA;
+  --line:        rgba(11, 122, 104, .16);
+  --line-strong: rgba(11, 122, 104, .32);
+
+  --text:       #10241F;
+  --text-soft:  #40605A;
+  /* الخافت على الورق يحتاج قتامة أكثر منه على السواد ليُقرأ. */
+  --text-faint: #5C7671;
+
+  --accent:      var(--teal-500);
+  --accent-soft: rgba(11, 122, 104, .10);
+  --gold:        var(--gold-600);
+  --gold-soft:   rgba(169, 118, 31, .14);
+
+  /* الذهبي الفاتح والأخضر الفاتح يختفيان على الورق، فيُستبدلان
+     بنظيرين داكنين يقرأهما الطرف بوضوح. */
+  --text-gold: #7A5310;
+  --text-teal: #075C4E;
+  --on-accent: #FFFFFF;
+  --on-gold:   #2A1B05;
+
+  /* الحدود على الورق تحتاج قتامة أكثر لتُرى. */
+  --line:        rgba(16, 47, 40, .16);
+  --line-strong: rgba(16, 47, 40, .30);
+
+  --leaf-empty: #D6CEBB;
+
+  --shadow-1: 0 2px 10px rgba(16, 47, 40, .08);
+  --shadow-2: 0 10px 30px rgba(16, 47, 40, .12);
+
+  color-scheme: light;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: .001s; }
+  * { animation-duration: .001s !important; transition-duration: .001s !important; }
+}

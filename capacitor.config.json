@@ -1,0 +1,34 @@
+{
+  "appId": "com.basairuna.app",
+  "appName": "بصائرنا",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#05100E"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#05100E",
+    "limitsNavigationsToAppBoundDomains": true
+  },
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 900,
+      "backgroundColor": "#05100E",
+      "showSpinner": false,
+      "androidSplashResourceName": "splash"
+    }
+  },
+  "_comment_permissions": "تُنقل هذه النصوص إلى Info.plist عند البناء لـ iOS. لا تتركها بالإنجليزية — المراجع يقرؤها.",
+  "ios_permissions": {
+    "NSMicrophoneUsageDescription": "يُستخدم الميكروفون لتسجيل ما حفظتَه من القرآن ليستمع إليه معلّمك.",
+    "NSPhotoLibraryUsageDescription": "تُستخدم الصور لاختيار صورتك الشخصية في البرنامج.",
+    "NSPhotoLibraryAddUsageDescription": "لحفظ نسخة من تقاريرك إن أردت.",
+    "NSCameraUsageDescription": "لالتقاط صورتك الشخصية أو تصوير صفحات كتابك."
+  }
+}

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<title>برنامج بصائرنا</title>
+<meta name="description" content="برنامج بصائرنا لمتابعة حفظ القرآن الكريم والمحافظة على الصلاة">
+<meta name="theme-color" content="#07120F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="بصائرنا">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400..700&family=Tajawal:wght@300;400;500;700;800&family=Amiri+Quran&family=Aref+Ruqaa:wght@400;700&display=swap">
+
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/reports-dashboard.css">
+</head>
+<body>
+
+<div id="splash" class="splash">
+  <img src="assets/logo.jpeg" alt="بصائرنا" class="splash-logo">
+  <div class="splash-name">بصائرنا</div>
+  <div class="splash-sub">برنامج متابعة حفظ القرآن الكريم</div>
+  <div class="splash-bar"><span></span></div>
+</div>
+
+<div id="app" class="app" hidden>
+  <header id="topbar" class="topbar"></header>
+  <main id="screen" class="screen" tabindex="-1"></main>
+  <div id="miniplayer" class="miniplayer" hidden></div>
+  <nav id="tabbar" class="tabbar"></nav>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast-root" class="toast-root" role="status" aria-live="polite"></div>
+
+<audio id="audio-el" preload="metadata" playsinline></audio>
+
+<!-- ── core ────────────────────────────────────────────────────────── -->
+<script src="js/config.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/quran.js"></script>
+<script src="js/adhkar.js"></script>
+<script src="js/util.js"></script>
+<script src="js/program.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/models.js"></script>
+<script src="js/streaks.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/recorder.js"></script>
+<script src="js/tree.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/router.js"></script>
+<!-- ── views ───────────────────────────────────────────────────────── -->
+<script src="js/views/auth.js"></script>
+<script src="js/views/student.js"></script>
+<script src="js/views/listen.js"></script>
+<script src="js/views/salah.js"></script>
+<script src="js/views/adhkar.js"></script>
+<script src="js/views/reciters.js"></script>
+<script src="js/views/report.js"></script>
+<script src="js/views/program.js"></script>
+<script src="js/views/reader.js"></script>
+<script src="js/views/library.js"></script>
+<script src="js/views/mushaf.js"></script>
+<script src="js/views/status.js"></script>
+<script src="js/views/path.js"></script>
+<script src="js/views/results.js"></script>
+<script src="js/views/more.js"></script>
+<script src="js/views/teacher.js"></script>
+<script src="js/views/reports-dashboard.js"></script>
+<script src="js/views/settings.js"></script>
+<!-- ── boot ────────────────────────────────────────────────────────── -->
+<script src="js/app.js"></script>
+</body>
+</html>

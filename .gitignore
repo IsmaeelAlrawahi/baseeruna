@@ -1,0 +1,13 @@
+# نظام التشغيل
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# أدوات/محلية
+*.log
+node_modules/
+
+# ملفات الإعداد الشخصية (إن أُنشئت لاحقًا)
+.env
+.env.*
+!.env.example

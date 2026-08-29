@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>اختبارات بصائرنا</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+  body { font-family: var(--font-ui, system-ui); background: var(--bg); color: var(--text);
+         margin: 0; padding: 24px; line-height: 1.9; }
+  h1 { font-family: var(--font-display, sans-serif); color: var(--gold-300); }
+  #summary { font-size: 1.2rem; margin: 12px 0 20px; }
+  ol { padding-inline-start: 22px; }
+  li { font-family: ui-monospace, Consolas, monospace; font-size: .9rem; }
+  .pass { color: var(--ok); }
+  .fail { color: var(--danger); font-weight: 700; }
+  .detail { color: var(--text-faint); }
+</style>
+</head>
+<body>
+<h1>اختبارات بصائرنا</h1>
+<div id="summary">جارٍ التشغيل…</div>
+<ol id="results"></ol>
+
+<script src="js/config.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/quran.js"></script>
+<script src="js/quran-text.js"></script>
+<script src="js/adhkar.js"></script>
+<script src="js/util.js"></script>
+<script src="js/program.js"></script>
+<script>
+  /* The tests below only touch pure functions, so the storage layer
+     is stubbed out — nothing here reads or writes a student's data. */
+  window.DB = {
+    async get() { return null; }, async all() { return []; },
+    async where() { return []; }, async put(r) { return r; },
+    async remove() {}, async setting() {}, on() {}, SCHEMA: {}
+  };
+</script>
+<script src="js/models.js"></script>
+<script src="js/streaks.js"></script>
+<script src="js/tree.js"></script>
+<script>
+(function () {
+  const results = [];
+  const check = (name, cond, detail) => results.push({ name, pass: !!cond, detail });
+
+  /* ── Qur'an reference data ─────────────────────────── */
+  check('مجموع آيات المصحف ٦٢٣٦', QURAN.TOTAL_AYAHS === 6236, QURAN.TOTAL_AYAHS);
+  check('عدد السور ١١٤', QURAN.surahs.length === 114, QURAN.surahs.length);
+  check('السورة الأخيرة الناس', QURAN.get(114).name === 'الناس', QURAN.get(114).name);
+  check('البقرة ٢٨٦ آية', QURAN.get(2).ayahs === 286, QURAN.get(2).ayahs);
+  check('جزء ٢:١٤٢ = ٢', QURAN.juzOf(2, 142) === 2, QURAN.juzOf(2, 142));
+  check('جزء ٧٨:١ = ٣٠', QURAN.juzOf(78, 1) === 30, QURAN.juzOf(78, 1));
+  check('البحث عن سورة بالرقم', QURAN.search('36')[0].name === 'يس');
+  check('البحث عن سورة بالاسم', QURAN.search('الكهف')[0].no === 18);
+
+  /* Overlapping entries must never be counted twice. */
+  const overlap = QURAN.coverage([
+    { surah: 1, from: 1, to: 7 }, { surah: 1, from: 3, to: 7 }, { surah: 1, from: 1, to: 5 }
+  ]);
+  check('التداخل يُحتسب مرة واحدة', overlap.ayahs === 7, overlap.ayahs);
+
+  const whole = QURAN.coverage(QURAN.surahs.map(s => ({ surah: s.no, from: 1, to: s.ayahs })));
+  check('المصحف كاملًا = ١٠٠٪', whole.percent === 100, whole.percent + '٪');
+  check('المصحف كاملًا = ٣٠ جزءًا', Math.round(whole.juz) === 30, whole.juz);
+
+  /* ── streaks ───────────────────────────────────────── */
+  const today = U.todayKey();
+  const back = n => U.addDays(today, -n);
+
+  check('سلسلة ٥ أيام متتالية',
+    Streaks.compute([0,1,2,3,4].map(back), { freezesPerMonth: 0 }).current === 5);
+  check('الانقطاع ينهي السلسلة عند ٢',
+    Streaks.compute([back(0), back(1), back(3)], { freezesPerMonth: 0 }).current === 2);
+  check('يوم السماح يجبر الانقطاع',
+    Streaks.compute([back(0), back(1), back(3)], { freezesPerMonth: 2 }).current === 3);
+  check('اليوم غير المكتمل لا يقطع السلسلة',
+    Streaks.compute([back(1), back(2)], { freezesPerMonth: 0 }).current === 2);
+  check('أطول سلسلة تُحفظ',
+    Streaks.compute([back(20),back(21),back(22),back(23), back(0)], { freezesPerMonth: 0 }).best === 4);
+  check('بدون أيام = سلسلة صفر',
+    Streaks.compute([], { freezesPerMonth: 2 }).current === 0);
+
+  /* ── dates ─────────────────────────────────────────── */
+  check('فبراير ٢٠٢٨ كبيسة (٢٩)', U.daysInMonth(2028, 2) === 29, U.daysInMonth(2028, 2));
+  check('فبراير ٢٠٢٦ = ٢٨', U.daysInMonth(2026, 2) === 28);
+  check('الفرق بين تاريخين', U.diffDays('2026-01-01', '2026-01-31') === 30);
+  check('إضافة أيام عبر حدّ الشهر', U.addDays('2026-01-31', 1) === '2026-02-01', U.addDays('2026-01-31', 1));
+  check('إضافة أيام عبر حدّ السنة', U.addDays('2026-12-31', 1) === '2027-01-01');
+
+  /* ── the tree ──────────────────────────────────────── */
+  const year = 2026;
+  const ids = CONFIG.prayerSlots.map(p => p.id);
+  const records = {
+    '2026-03-15': { date: '2026-03-15', jamaah: {},
+                    slots: ids.reduce((o, i) => (o[i] = 1, o), {}) }
+  };
+
+  const stats = Tree.stats(records, year);
+  const expectedLeaves = 365 * CONFIG.prayerSlots.length;
+  check('أوراق السنة = عدد الأيام × عدد الصلوات',
+    stats.totalLeaves === expectedLeaves, stats.totalLeaves);
+  check('اليوم الكامل يُحتسب', stats.fullDays === 1 && stats.grown === ids.length, stats.grown);
+
+  const doc = new DOMParser().parseFromString(Tree.yearSvg(year, records), 'image/svg+xml');
+  check('رسم السنة سليم', !doc.querySelector('parsererror'));
+  check('١٢ غصنًا رئيسيًا', doc.querySelectorAll('g.month').length === 12, doc.querySelectorAll('g.month').length);
+  check('٤٨ غصنًا للأسابيع (١٢×٤)', doc.querySelectorAll('g.week').length === 48, doc.querySelectorAll('g.week').length);
+  check('٣٦٥ غصينًا للأيام', doc.querySelectorAll('g.day').length === 365, doc.querySelectorAll('g.day').length);
+  check('كل ورقة في مكانها', doc.querySelectorAll('use').length === expectedLeaves, doc.querySelectorAll('use').length);
+
+  const feb = new DOMParser().parseFromString(Tree.monthSvg(year, 1, records), 'image/svg+xml');
+  check('عرض فبراير = ٢٨ يومًا', feb.querySelectorAll('g.day').length === 28, feb.querySelectorAll('g.day').length);
+  const jan = new DOMParser().parseFromString(Tree.monthSvg(year, 0, records), 'image/svg+xml');
+  check('عرض يناير = ٣١ يومًا (٢٨ + ٣ على الغصن الرابع)',
+    jan.querySelectorAll('g.day').length === 31, jan.querySelectorAll('g.day').length);
+  check('أوراق الشهر قابلة للنقر', jan.querySelectorAll('use[data-slot]').length === 31 * ids.length);
+
+  /* ── pages ────────────────────────────────────────────
+     Ayahs are not spread evenly over the mushaf, so page figures
+     must come from the surah and juz page tables, never a ratio. */
+  const P = (a, b) =>
+    QURAN.pagesBetween(QURAN.absoluteIndex(a[0], a[1]), QURAN.absoluteIndex(b[0], b[1]));
+
+  check('الفاتحة صفحة واحدة', Math.round(P([1,1],[1,7])) === 1, P([1,1],[1,7]));
+  check('البقرة ٤٨ صفحة', Math.round(P([2,1],[2,286])) === 48, P([2,1],[2,286]));
+  check('الكهف ١٢ صفحة', Math.round(P([18,1],[18,110])) === 12, P([18,1],[18,110]));
+  check('المصحف كله ٦٠٤ صفحة', Math.round(P([1,1],[114,6])) === 604, P([1,1],[114,6]));
+
+  const juzPages = [];
+  for (let i = 1; i <= QURAN.TOTAL_JUZ; i++) {
+    const j = QURAN.juzRange(i);
+    juzPages.push(QURAN.pagesBetween(j.from, j.to));
+  }
+  check('الجزء الأول ٢١ صفحة', Math.round(juzPages[0]) === 21, juzPages[0]);
+  check('الجزء الثلاثون ٢٣ صفحة', Math.round(juzPages[29]) === 23, juzPages[29]);
+  check('كل جزء بين ١٩ و٢٤ صفحة', juzPages.every(p => p >= 19 && p <= 24));
+  check('مجموع الأجزاء ٦٠٤ صفحة',
+    Math.round(juzPages.reduce((a, b) => a + b, 0)) === 604,
+    Math.round(juzPages.reduce((a, b) => a + b, 0)));
+
+  /* ── addressing a portion of the mushaf ────────────── */
+  check('الجزء ٣٠ يبدأ بالنبأ',
+    QURAN.juzRange(30).from === QURAN.absoluteIndex(78, 1));
+  check('الجزء ٣٠ ينتهي بآخر المصحف', QURAN.juzRange(30).to === QURAN.TOTAL_AYAHS);
+  let juzAyahs = 0;
+  for (let i = 1; i <= 30; i++) juzAyahs += QURAN.juzRange(i).ayahs;
+  check('الأجزاء الثلاثون تغطي المصحف', juzAyahs === QURAN.TOTAL_AYAHS, juzAyahs);
+  check('سورة البقرة ٢٨٦ آية', QURAN.surahRange(2).ayahs === 286);
+  check('نطاق الصفحات ١–١٠', QURAN.pageRange(1, 10).pages === 10);
+  check('الصفحات ١–٦٠٤ تنتهي بآخر آية',
+    QURAN.pageRange(1, 604).to === QURAN.TOTAL_AYAHS);
+
+  check('ما حُفظ داخل الجزء يُحتسب',
+    QURAN.coverageIn([{ surah: 78, from: 1, to: 40 }], QURAN.juzRange(30)).ayahs === 40);
+  check('ما حُفظ خارج الجزء لا يُحتسب',
+    QURAN.coverageIn([{ surah: 2, from: 1, to: 50 }], QURAN.juzRange(30)).ayahs === 0);
+  check('السورة كاملة = ١٠٠٪ من نطاقها',
+    QURAN.coverageIn([{ surah: 2, from: 1, to: 286 }], QURAN.surahRange(2)).percent === 100);
+
+  /* ── الأذكار ──────────────────────────────────────── */
+  check('أقسام الأذكار ستة', ADHKAR.categories.length === 6, ADHKAR.categories.length);
+  check('لكل ذكر نص وعدد ومصدر',
+    ADHKAR.items.every(i => i.text && i.count >= 1 && i.source));
+  check('لكل ذكر قسم واحد على الأقل',
+    ADHKAR.items.every(i => Array.isArray(i.cats) && i.cats.length));
+  check('معرّفات الأذكار غير مكرّرة',
+    new Set(ADHKAR.items.map(i => i.id)).size === ADHKAR.items.length);
+  check('كل قسم فيه أذكار',
+    ADHKAR.categories.every(c => ADHKAR.forCategory(c.id).length > 0));
+  const mornAsb = ADHKAR.forCategory('morning').find(i => i.id === 'asbahna');
+  const eveAsb  = ADHKAR.forCategory('evening').find(i => i.id === 'asbahna');
+  check('صيغة الصباح «أصبحنا»', /أَصْبَحْنَا وَأَصْبَحَ/.test(mornAsb.text));
+  check('صيغة المساء «أمسينا»', /أَمْسَيْنَا وَأَمْسَى/.test(eveAsb.text));
+  check('الذكر المشترك يُعدّ لكل قسم على حدة', mornAsb.key !== eveAsb.key);
+
+  /* ── الصلوات الفائتة تظهر حمراء ───────────────────── */
+  const yesterday = U.addDays(U.todayKey(), -1);
+  const nowY = U.parseKey(U.todayKey()).getFullYear();
+  const nowM = U.parseKey(U.todayKey()).getMonth();
+  const missRecords = {};
+  missRecords[yesterday] = { date: yesterday, jamaah: {}, slots: { fajr: 1 } };
+  missRecords[U.todayKey()] = { date: U.todayKey(), jamaah: {}, slots: { fajr: 1 } };
+
+  const missDoc = new DOMParser().parseFromString(
+    Tree.monthSvg(nowY, nowM, missRecords), 'image/svg+xml');
+  const yDay = missDoc.querySelector('g.day[data-day="' + yesterday + '"]');
+  const tDay = missDoc.querySelector('g.day[data-day="' + U.todayKey() + '"]');
+  const fardCount = CONFIG.prayerSlots.filter(p => p.kind === 'fard').length;
+
+  /* التلوين بالأحمر أُوقف بطلب المعلّم: الورقة التي لم تُسجَّل تبقى
+     فارغة تنتظر صاحبها، وله أن يضغط على غصنها فيسجّلها ولو مضى يومها. */
+  check('لا ورقة حمراء لما فات',
+    yDay.querySelectorAll('use.missed').length === 0,
+    yDay.querySelectorAll('use.missed').length);
+  check('اليوم الحالي لا يُعدّ فائتًا',
+    tDay.querySelectorAll('use.missed').length === 0);
+  check('كل يوم في الشهر له موضع ضغط',
+    missDoc.querySelectorAll('[data-dayhit]').length ===
+      U.daysInMonth(nowY, nowM + 1),
+    missDoc.querySelectorAll('[data-dayhit]').length);
+  check('التلوين بالأحمر معطَّل في الإعدادات',
+    CONFIG.tree.markMissedFard === false);
+  check('لو أُعيد التلوين لكان للفروض وحدها',
+    CONFIG.tree.markMissedExtra === false);
+  check('إحصاء الفائت ما زال محسوبًا للمعلّم',
+    typeof Tree.stats(missRecords, nowY).missed === 'number');
+
+  /* ── أيام البرنامج: من الأحد إلى الأربعاء ─────────── */
+  let sunday = U.todayKey();
+  while (U.parseKey(sunday).getDay() !== 0) sunday = U.addDays(sunday, -1);
+  const wk = [0,1,2,3,4,5,6].map(i => U.addDays(sunday, i));
+  const dayName = k => T('weekdayNames')[U.parseKey(k).getDay()];
+
+  check('الأحد يوم متابعة', ProgramDays.isProgramDay(wk[0]), dayName(wk[0]));
+  check('الإثنين يوم متابعة', ProgramDays.isProgramDay(wk[1]));
+  check('الثلاثاء يوم متابعة', ProgramDays.isProgramDay(wk[2]));
+  check('الأربعاء يوم متابعة', ProgramDays.isProgramDay(wk[3]));
+  check('الخميس ليس يوم متابعة', !ProgramDays.isProgramDay(wk[4]));
+  check('الجمعة ليست يوم متابعة', !ProgramDays.isProgramDay(wk[5]));
+  check('السبت ليس يوم متابعة', !ProgramDays.isProgramDay(wk[6]));
+  check('أربعة أيام متابعة في الأسبوع',
+    ProgramDays.daysOfWeek(sunday).length === 4, ProgramDays.daysOfWeek(sunday).length);
+  check('الأسبوع يبدأ بالأحد', ProgramDays.weekKey(wk[3]) === sunday);
+  check('الخميس يرجع إلى الأربعاء',
+    ProgramDays.lastProgramDay(wk[4]) === wk[3], dayName(ProgramDays.lastProgramDay(wk[4])));
+
+  check('قيام الليل الأحد', ProgramDays.isQiyamDay(wk[0]));
+  check('قيام الليل الثلاثاء', ProgramDays.isQiyamDay(wk[2]));
+  check('لا قيام يوم الأربعاء', !ProgramDays.isQiyamDay(wk[3]));
+  check('قيام الليل متابعة خاصة', PROGRAM.privateTracks.indexOf('qiyam') !== -1);
+
+  /* ── المقادير اليومية ─────────────────────────────── */
+  check('حفظ نصف صفحة يوميًا', PROGRAM.targets.quranMemorize === 0.5);
+  check('مراجعة صفحتين يوميًا', PROGRAM.targets.quranReview === 2);
+  check('حفظ بيتين يوميًا', PROGRAM.targets.poetryVerses === 2);
+  check('القراءة ١٥ دقيقة', PROGRAM.targets.readingMinutes === 15);
+
+  const fullDay = {
+    date: wk[0],
+    quran: { memorized: 0.5, reviewed: 2 },
+    poetry: { verses: 2 },
+    reading: { minutes: 15, pages: 10 }
+  };
+  check('اليوم الموفي بالمطلوب مكتمل', Reports.isComplete(fullDay));
+  const fullParts = Reports.scoreDay(fullDay);
+  check('كل بنود اليوم كاملة',
+    fullParts.quranMemorize === 1 && fullParts.quranReview === 1 &&
+    fullParts.poetry === 1 && fullParts.reading === 1);
+
+  const halfDay = {
+    date: wk[0],
+    quran: { memorized: 0.25, reviewed: 1 },
+    poetry: { verses: 1 }, reading: { minutes: 0 }
+  };
+  check('النصف يعطي نصف الدرجة', Reports.scoreDay(halfDay).quranMemorize === 0.5);
+  check('الصفر يعطي صفرًا', Reports.scoreDay(halfDay).reading === 0);
+  check('اليوم الناقص غير مكتمل', !Reports.isComplete(halfDay));
+
+  const overDay = {
+    date: wk[0],
+    quran: { memorized: 5, reviewed: 20 },
+    poetry: { verses: 40 }, reading: { minutes: 300 }
+  };
+  check('الزيادة مسموحة ولا تتجاوز الحدّ',
+    Reports.scoreDay(overDay).quranMemorize === PROGRAM.scoring.capPerItem);
+
+  /* المعلّم يرفع المقدار لطالب بعينه */
+  const raised = Object.assign({}, PROGRAM.targets, { quranMemorize: 1 });
+  check('رفع المقدار يغيّر حساب صاحبه',
+    Reports.scoreDay(fullDay, raised).quranMemorize === 0.5);
+  check('ولا يمسّ المقدار العام',
+    Reports.scoreDay(fullDay).quranMemorize === 1);
+
+  /* ── النحو والملتقيات ─────────────────────────────── */
+  check('سلسلة النحو ٢٨ حلقة', PROGRAM.nahw.lessons === 28);
+  check('حلقة كل أسبوع', PROGRAM.nahw.perWeek === 1);
+  check('حلقة الأسبوع الأول هي الأولى', Nahw.expectedLesson(sunday, wk[0]) === 1);
+  check('حلقة الأسبوع الثالث هي الثالثة',
+    Nahw.expectedLesson(sunday, U.addDays(sunday, 14)) === 3,
+    Nahw.expectedLesson(sunday, U.addDays(sunday, 14)));
+  check('لا تتجاوز الحلقة الثامنة والعشرين',
+    Nahw.expectedLesson(sunday, U.addDays(sunday, 700)) === 28);
+  check('أربعة ملتقيات في الفصل', PROGRAM.meetups.length === 4);
+
+  /* ── أوزان التقييم ────────────────────────────────── */
+  const weights = PROGRAM.scoring.weights;
+  check('مجموع أوزان التقييم ١٠٠',
+    Object.keys(weights).reduce((a, k) => a + weights[k], 0) === 100,
+    Object.keys(weights).reduce((a, k) => a + weights[k], 0));
+  check('قيام الليل داخل في التقييم', weights.qiyam > 0, weights.qiyam);
+
+  /* ── مقترحات الحفظ ────────────────────────────────── */
+  const suggested = PROGRAM.poemSuggestions.map(p => p.title);
+  ['غاية المراد','أنوار العقول','تائية الألبيري','ملحة الإعراب',
+   'كشف الحقيقة','ألفية ابن مالك','المعلقات'].forEach(name => {
+    check('مقترح: ' + name, suggested.indexOf(name) !== -1);
+  });
+
+  /* ── نصيب اليوم من الهدف ──────────────────────────── */
+  const nurGoal = {
+    mode: 'surah', surah: 24,
+    startDate: sunday, deadline: U.addDays(sunday, 9)   /* ١٠ أيام */
+  };
+  const p1 = Goals.dayPortion(nurGoal, sunday);
+  const pLast = Goals.dayPortion(nurGoal, U.addDays(sunday, 9));
+
+  check('الهدف يُقسَّم على عشرة أيام', p1.daysTotal === 10, p1.daysTotal);
+  check('نصيب اليوم الأول يبدأ بأول السورة',
+    p1.from === QURAN.absoluteIndex(24, 1), p1.label);
+  check('نصيب اليوم الأخير ينتهي بآخرها',
+    pLast.to === QURAN.absoluteIndex(24, 64), pLast.label);
+  check('نصيب اليوم داخل السورة وحدها',
+    p1.start.surah === 24 && p1.end.surah === 24);
+  check('القطع متتابعة بلا فجوة',
+    Goals.dayPortions(nurGoal).every((p, i, arr) => i === 0 || p.from === arr[i-1].to + 1));
+  check('مجموع القطع = آيات السورة',
+    Goals.dayPortions(nurGoal).reduce((a, p) => a + p.ayahs, 0) === 64,
+    Goals.dayPortions(nurGoal).reduce((a, p) => a + p.ayahs, 0));
+  check('هدف المقدار بلا نصيب موضعي',
+    Goals.dayPortion({ mode: 'amount', amount: 5, unit: 'pages',
+                       startDate: sunday, deadline: U.addDays(sunday, 4) }) === null);
+  check('هدف بلا موعد بلا نصيب يومي',
+    Goals.dayPortion({ mode: 'surah', surah: 24, startDate: sunday, deadline: null }) === null);
+
+  /* ── الشجرة تبدأ من ٢٠٢٦ ──────────────────────────── */
+  check('أول سنة في الشجرة ٢٠٢٦', CONFIG.tree.firstYear === 2026, CONFIG.tree.firstYear);
+
+  /* ── تقسيم الكتاب إلى صفحات ───────────────────────── */
+  const longText = Array.from({ length: 40 },
+    (_, i) => 'فقرة رقم ' + (i + 1) + '. ' + 'كلمة '.repeat(30)).join('\n\n');
+  const bookPages = Books.paginate(longText, 500);
+  check('النصّ يُقسَّم إلى صفحات', bookPages.length > 5, bookPages.length + ' صفحة');
+  check('لا صفحة فارغة', bookPages.every(p => p.trim().length > 0));
+  check('لا صفحة أطول من الحدّ بكثير',
+    bookPages.every(p => p.length <= 500 * 1.7),
+    Math.max.apply(null, bookPages.map(p => p.length)));
+  check('النصّ الفارغ لا يُنتج صفحات', Books.paginate('').length === 0);
+  check('الكتاب بلا نسخة غير مقروء', !Books.isReadable({ pageFiles: [], textFileId: null }));
+  check('الكتاب بصور صفحات مقروء', Books.isReadable({ pageFiles: ['a','b'] }));
+  check('عدد صفحات النسخة صحيح',
+    Books.readablePages({ pageFiles: ['a','b','c'] }) === 3);
+
+  /* ── رموز الدخول ──────────────────────────────────── */
+  const codes = [];
+  const fake = [];
+  for (let i = 0; i < 300; i++) {
+    const c = Users.makeCode(fake);
+    codes.push(c); fake.push({ code: c });
+  }
+  check('رمز الدخول من خمسة محارف', codes.every(c => c.length === 5));
+  check('الرموز لا تتكرّر', new Set(codes).size === codes.length, new Set(codes).size);
+  check('الرموز بلا حروف تلتبس (O/0/I/1)',
+    codes.every(c => !/[O0I1]/.test(c)));
+  check('قائمة الأسماء مخفية في صفحة الدخول', CONFIG.auth.showStudentList === false);
+
+  /* ── نصّ المصحف ───────────────────────────────────── */
+  check('نصّ المصحف ١١٤ سورة', QURAN_TEXT.length === 114, QURAN_TEXT.length);
+  check('نصّ المصحف ٦٢٣٦ آية',
+    QURAN_TEXT.reduce((a, s) => a + s.length, 0) === 6236,
+    QURAN_TEXT.reduce((a, s) => a + s.length, 0));
+  check('عدد آيات كل سورة يطابق الجدول',
+    QURAN.surahs.every(s => QURAN_TEXT[s.no - 1].length === s.ayahs));
+  check('حروف عربية لا رموز مشوّهة',
+    QURAN_TEXT.ayah(1, 1).codePointAt(0) === 0x0628,
+    'U+' + QURAN_TEXT.ayah(1, 1).codePointAt(0).toString(16));
+  check('الفاتحة ١ هي البسملة', QURAN_TEXT.ayah(1, 1) === QURAN_TEXT.BASMALA);
+  check('البسملة مفصولة عن البقرة', QURAN_TEXT.ayah(2, 1).length <= 6, QURAN_TEXT.ayah(2, 1));
+  check('البسملة مفصولة عن الإخلاص', QURAN_TEXT.ayah(112, 1).length < 30);
+  check('التوبة بلا اقتطاع', QURAN_TEXT.ayah(9, 1).length > 30);
+  check('لا آية فارغة',
+    QURAN_TEXT.every(s => s.every(a => a && a.trim().length > 0)));
+  const bareText = t => t.replace(/[ً-ٰٟۖ-ۭـ]/g, '')
+                         .replace(/[آأإٱ]/g, 'ا')
+                         .replace(/\s+/g, ' ').trim();
+  const basmalaBare = bareText(QURAN_TEXT.BASMALA);
+  check('لا سورة بقيت البسملة ملصقة بأولها',
+    QURAN.surahs.slice(1).every(s => {
+      const w = QURAN_TEXT.ayah(s.no, 1).split(' ');
+      return w.length < 4 || bareText(w.slice(0, 4).join(' ')) !== basmalaBare;
+    }));
+
+  /* ── صفحات المصحف ─────────────────────────────────── */
+  check('فهرس الصفحات ٦٠٤', QURAN_TEXT.PAGES.length === 604, QURAN_TEXT.PAGES.length);
+  check('الصفحة ١ تبدأ بالفاتحة', QURAN_TEXT.pageRange(1)[0] === 1);
+  check('الصفحة ٢ تبدأ بالبقرة ١',
+    QURAN_TEXT.pageRange(2)[0] === QURAN.absoluteIndex(2, 1));
+  check('الصفحة ٥٨٢ تبدأ بالنبأ',
+    QURAN_TEXT.pageRange(582)[0] === QURAN.absoluteIndex(78, 1));
+  check('الصفحة ٦٠٤ تنتهي بآخر آية', QURAN_TEXT.pageRange(604)[1] === 6236);
+  check('الصفحات متّصلة بلا فجوة ولا تداخل',
+    Array.from({ length: 603 }, (_, i) => i + 1).every(n =>
+      QURAN_TEXT.pageRange(n)[1] + 1 === QURAN_TEXT.pageRange(n + 1)[0]));
+  check('كل صفحة فيها آية فأكثر',
+    Array.from({ length: 604 }, (_, i) => i + 1).every(n => {
+      const [a, b] = QURAN_TEXT.pageRange(n); return b >= a;
+    }));
+  check('pageOf يعكس pageRange',
+    Array.from({ length: 604 }, (_, i) => i + 1).every(n =>
+      QURAN_TEXT.pageOf(QURAN_TEXT.pageRange(n)[0]) === n));
+
+  /* ── تجريد النصّ للبحث ────────────────────────────── */
+  const dagger = /ٰ/g;
+  const noDagger = t => QURAN_TEXT.bare(t).replace(dagger, '');
+  const asAlef  = t => QURAN_TEXT.bare(t.replace(dagger, 'ا'));
+  check('الحركات تُجرَّد للبحث',
+    noDagger('إِيَّاكَ نَعْبُدُ') === noDagger('اياك نعبد'),
+    noDagger('إِيَّاكَ نَعْبُدُ'));
+  check('«الرحمن» بلا ألف تُطابق الرسم',
+    noDagger(QURAN_TEXT.ayah(1, 1)).indexOf('الرحمن') !== -1);
+  check('«العالمين» بألف تُطابق الرسم',
+    asAlef(QURAN_TEXT.ayah(1, 2)).indexOf('العالمين') !== -1,
+    asAlef(QURAN_TEXT.ayah(1, 2)));
+  check('الفاتحة ٥ فيها «إياك نعبد»',
+    noDagger(QURAN_TEXT.ayah(1, 5)).indexOf('اياك نعبد') !== -1);
+
+  /* ── التقويم ──────────────────────────────────────── */
+  const keepCal = U.calendar.system, keepOff = U.calendar.offset;
+  U.setCalendar('hijri', 0);
+  check('الهجري هو المعروض', U.isHijri());
+  check('التاريخ الهجري ينتهي بـ هـ', /هـ$/.test(U.formatDate(U.todayKey())),
+    U.formatDate(U.todayKey()));
+  check('باسم شهر هجري',
+    T('hijriMonths').some(m => U.formatDate(U.todayKey()).includes(m)));
+  check('مفتاح التخزين يبقى ميلاديًّا', /^\d{4}-\d{2}-\d{2}$/.test(U.todayKey()));
+  const h0 = U.hijriParts(new Date());
+  U.setCalendar('hijri', 1);
+  const h1 = U.hijriParts(new Date());
+  check('تعديل الهلال يزيح يومًا',
+    h1.day !== h0.day || h1.month !== h0.month,
+    `${h0.day}/${h0.month} → ${h1.day}/${h1.month}`);
+  U.setCalendar('gregorian', 0);
+  check('الميلادي يعود عند اختياره', !/هـ/.test(U.formatDate(U.todayKey())));
+  check('الميلادي صريحًا متاح دائمًا',
+    T('monthNames').some(m => U.formatGregorian(U.todayKey()).includes(m)),
+    U.formatGregorian(U.todayKey()));
+  U.setCalendar(keepCal, keepOff);
+
+  /* ── المستويات ────────────────────────────────────── */
+  check('ثلاثة مستويات', PROGRAM.levels.length === 3);
+  check('المستوى الثالث وحده له برنامجي',
+    PROGRAM.levels.filter(l => l.hasProgram).length === 1 &&
+    PROGRAM.levels.find(l => l.hasProgram).id === 3);
+  check('برنامجي يظهر للمستوى الثالث', ProgramDays.hasProgram({ level: 3 }));
+  check('ولا يظهر للأول والثاني',
+    !ProgramDays.hasProgram({ level: 1 }) && !ProgramDays.hasProgram({ level: 2 }));
+  check('بلا مستوى يُعامَل بالافتراضي',
+    ProgramDays.level({}).id === PROGRAM.defaultLevel);
+
+  /* ── ترتيب ملفات القارئ من أسمائها ────────────────── */
+  check('"002.mp3" ← سورة ٢', Reciters.surahFromName('002.mp3') === 2);
+  check('"114 الناس.mp3" ← ١١٤', Reciters.surahFromName('114 الناس.mp3') === 114);
+  check('"Al-Baqara-002.mp3" ← ٢', Reciters.surahFromName('Al-Baqara-002.mp3') === 2);
+  check('"036_128kbps.mp3" ← ٣٦', Reciters.surahFromName('036_128kbps.mp3') === 36,
+    Reciters.surahFromName('036_128kbps.mp3'));
+  check('"1.mp3" ← ١', Reciters.surahFromName('1.mp3') === 1);
+  check('اسم بلا رقم لا يُنسَب', Reciters.surahFromName('recitation.mp3') === null);
+  check('رقم فوق ١١٤ يُهمل', Reciters.surahFromName('999.mp3') === null);
+
+  /* ── الشجرة بلا أحمر ──────────────────────────────── */
+  check('الفائت لا يُلوَّن بالأحمر', CONFIG.tree.markMissedFard === false);
+  const tapDoc = new DOMParser().parseFromString(
+    Tree.yearSvg(CONFIG.tree.firstYear, {}), 'image/svg+xml');
+  check('كل يوم في السنة له موضع ضغط',
+    tapDoc.querySelectorAll('[data-dayhit]').length === 365,
+    tapDoc.querySelectorAll('[data-dayhit]').length);
+  check('لا ورقة حمراء في الشجرة',
+    tapDoc.querySelectorAll('use.missed').length === 0);
+
+  /* ── تقسيم الكتاب ووسائط القراءة ──────────────────── */
+  check('الكتاب بملف PDF مقروء', Books.isReadable({ pdfFileId: 'x' }));
+  check('الكتاب بلا شيء غير مقروء',
+    !Books.isReadable({ pdfFileId: null, pageFiles: [], textFileId: null }));
+
+  /* ── render ────────────────────────────────────────── */
+  const list = document.getElementById('results');
+  results.forEach(r => {
+    const li = document.createElement('li');
+    li.className = r.pass ? 'pass' : 'fail';
+    li.textContent = (r.pass ? '✔ ' : '✘ ') + r.name;
+    if (r.detail !== undefined) {
+      const s = document.createElement('span');
+      s.className = 'detail';
+      s.textContent = '  (' + r.detail + ')';
+      li.appendChild(s);
+    }
+    list.appendChild(li);
+  });
+
+  const failed = results.filter(r => !r.pass).length;
+  const summary = document.getElementById('summary');
+  summary.textContent = failed
+    ? `${failed} اختبار فاشل من ${results.length}`
+    : `نجحت جميع الاختبارات (${results.length})`;
+  summary.className = failed ? 'fail' : 'pass';
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+/* ============================================================
+   لوحة التقارير - تنسيق إضافي
+   ============================================================ */
+
+.page--reports-dashboard {
+  padding: 1rem;
+}
+
+.reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.report-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.report-item:hover {
+  background: var(--bg-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.report-item-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.report-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.report-item-name {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.report-item-stats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.report-item-stats span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.report-item-note {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-item-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.report-item-meta small {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.section-title {
+  margin-bottom: 0.5rem;
+}
+
+.section-title h3 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.section-title small {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 600px) {
+  .report-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .report-item-meta {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .report-item-stats {
+    font-size: 0.8rem;
+  }
+}
