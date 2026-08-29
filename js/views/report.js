@@ -88,9 +88,17 @@
     poetryCard.appendChild(trackTitle(T('poetry'), 'star', 'var(--gold-400)'));
 
     if (!poem) {
-      poetryCard.appendChild(UI.empty(T('noPoem'),
-        asTeacher ? null : UI.button(T('addPoem'),
-          () => ProgramView.openPoemSheet(null, viewingId), 'ghost', { icon: 'plus' })));
+      // للمعلم: اعرض ما أرسله الطالب حتى لو لم تُزامن قصيدته النشطة
+      if (asTeacher && (rec.poetry?.verses || rec.poetry?.poemId)) {
+        poetryCard.appendChild(el('div.track-subject', {},
+          el('div', {}, el('b', {}, 'قصيدة اليوم'), el('small', {}, `${U.num(rec.poetry.verses || 0)} بيت`))));
+        poetryCard.appendChild(UI.field(T('versesToday'),
+          el('p', {}, `${U.num(rec.poetry.verses || 0)} بيت — ${rec.poetry.poemId || ''}`)));
+      } else {
+        poetryCard.appendChild(UI.empty(T('noPoem'),
+          asTeacher ? null : UI.button(T('addPoem'),
+            () => ProgramView.openPoemSheet(null, viewingId), 'ghost', { icon: 'plus' })));
+      }
     } else {
       const pp = await Poems.progress(poem);
       /* The stored total already contains whatever today's report
@@ -133,9 +141,15 @@
     readingCard.appendChild(trackTitle(T('reading'), 'book', 'var(--teal-200)'));
 
     if (!book) {
-      readingCard.appendChild(UI.empty(T('noBook'),
-        asTeacher ? null : UI.button(T('chooseBook'),
-          () => LibraryView.openBookPicker(viewingId), 'primary', { icon: 'library' })));
+      if (asTeacher && (rec.reading?.minutes || rec.reading?.pages || rec.reading?.bookId)) {
+        readingCard.appendChild(el('div.track-subject', {},
+          el('div', {}, el('b', {}, 'كتاب اليوم'), el('small', {}, `${U.num(rec.reading.minutes || 0)} دقيقة · ${U.num(rec.reading.pages || 0)} صفحة`))));
+        readingCard.appendChild(el('p.hint', {}, rec.reading.bookId || '—'));
+      } else {
+        readingCard.appendChild(UI.empty(T('noBook'),
+          asTeacher ? null : UI.button(T('chooseBook'),
+            () => LibraryView.openBookPicker(viewingId), 'primary', { icon: 'library' })));
+      }
     } else {
       const bp = await Books.progress(book);
       const base = bp.done - (rec.reading.bookId === book.id ? (+rec.reading.pages || 0) : 0);

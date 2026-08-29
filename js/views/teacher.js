@@ -297,7 +297,9 @@
           el('b', {}, s.name),
           el('small', {}, rec.submitted
             ? `${T('tasksDone', U.num(done), U.num(dayItems.length))} · ` +
-              `حفظ ${U.num(rec.quran.memorized)} · مراجعة ${U.num(rec.quran.reviewed)}`
+              `حفظ ${U.num(rec.quran.memorized)} · مراجعة ${U.num(rec.quran.reviewed)}` +
+              ` · شعر ${U.num(rec.poetry?.verses || 0)} بيت` +
+              ` · قراءة ${U.num(rec.reading?.minutes || 0)}د`
             : 'لم يرسل تقريره')),
         el('div.report-pips', {}, dayItems.map(i => {
           const v = parts[i.key] || 0;
