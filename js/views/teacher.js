@@ -234,6 +234,35 @@
     const students = await Users.students(me.id);
     const isQiyamDay = ProgramDays.isQiyamDay(date);
 
+    /* اسحب أحدث التقارير من السحابة وادمجها محلياً قبل العرض،
+       حتى يظهر تقرير الطالب وإن أرسله للتوّ من جهازه. */
+    try {
+      if (students.length && window.SupabaseClient && window.SupabaseClient.isConfigured) {
+        const ids = students.map(s => s.id);
+        const cloud = await window.SupabaseClient.getReportsForUsers(ids);
+        for (const cr of cloud || []) {
+          try {
+            const local = {
+              id: cr.id, userId: cr.userId, date: cr.date,
+              userDate: cr.userDate || (cr.userId + '|' + cr.date),
+              quran: cr.quran || {}, poetry: cr.poetry || {},
+              reading: cr.reading || {}, qiyam: !!cr.qiyam,
+              note: cr.note || '', teacherNote: cr.teacherNote || '',
+              submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
+              teacherSeen: !!cr.teacherSeen,
+              updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
+            };
+            const existing = await DB.get('reports', local.id);
+            if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
+              await DB.put('reports', local);
+            }
+          } catch (e) { /* تجاهل سجلاً معطوباً */ }
+        }
+      }
+    } catch (e) {
+      console.warn('[بصائرنا] تعذّر سحب تقارير اليوم من السحابة', e);
+    }
+
     page.appendChild(el('div.report-head', {},
       el('div', {},
         el('h2.report-day', {}, ProgramDays.dayName(date)),

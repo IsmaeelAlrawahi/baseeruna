@@ -40,6 +40,33 @@
     const isProgramDay = ProgramDays.isProgramDay(date);
     const targets = Object.assign({}, PROGRAM.targets, user.targets || {});
 
+    /* اسحب أحدث التقرير من السحابة قبل العرض حتى يظهر تقرير
+       الطالب حتى لو أرسله للتوّ من جهازه. */
+    try {
+      if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
+        const cloud = await window.SupabaseClient.getReportsForUsers([viewingId]);
+        const cr = (cloud || []).find(r => (r.date || '') === date) || (cloud || [])[0];
+        if (cr) {
+          const local = {
+            id: cr.id, userId: cr.userId, date: cr.date,
+            userDate: cr.userDate || (cr.userId + '|' + cr.date),
+            quran: cr.quran || {}, poetry: cr.poetry || {},
+            reading: cr.reading || {}, qiyam: !!cr.qiyam,
+            note: cr.note || '', teacherNote: cr.teacherNote || '',
+            submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
+            teacherSeen: !!cr.teacherSeen,
+            updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
+          };
+          const existing = await DB.get('reports', local.id);
+          if (!cr.submitted || !existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
+            await DB.put('reports', local);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[بصائرنا] تعذّر سحب تقرير الطالب من السحابة', e);
+    }
+
     let rec = await Reports.get(viewingId, date);
     const [poem, book] = await Promise.all([
       Poems.active(viewingId), Books.active(viewingId)
