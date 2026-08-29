@@ -290,12 +290,17 @@
     }
 
     async function submit() {
-      /* Write whatever the debounce is still holding, then the whole
-         record, so nothing typed in the last moment is lost. */
-      pending = {};
-      await Reports.save(viewingId, date, {
-        quran: rec.quran, poetry: rec.poetry, reading: rec.reading, note: rec.note
-      });
+      // افرغ pending أولاً بما كتبه الطالب قبل الضغط مباشرة
+      if (Object.keys(pending).length) {
+        const patch = pending; pending = {};
+        await Reports.save(viewingId, date, patch);
+        Object.assign(rec, patch);
+      } else {
+        pending = {};
+        await Reports.save(viewingId, date, {
+          quran: rec.quran, poetry: rec.poetry, reading: rec.reading, note: rec.note
+        });
+      }
       const wasSubmitted = rec.submitted;
       rec = await Reports.submit(viewingId, date);
 

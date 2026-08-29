@@ -16,15 +16,15 @@ window.Users = {
       .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   },
 
-  /* رمز دخول قصير يسهل نطقه وكتابته، بلا حروف تلتبس. */
+  /* رمز دخول 6 أحرف بلا التباس، عبر crypto. */
   makeCode(existing) {
     const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
     const taken = new Set((existing || []).map(u => u.code));
-    for (let attempt = 0; attempt < 200; attempt++) {
+    for (let attempt = 0; attempt < 300; attempt++) {
       let code = '';
-      for (let i = 0; i < 5; i++) {
-        code += alphabet[Math.floor(Math.random() * alphabet.length)];
-      }
+      const rnd = new Uint32Array(6);
+      (window.crypto || window.msCrypto).getRandomValues(rnd);
+      for (let i = 0; i < 6; i++) code += alphabet[rnd[i] % alphabet.length];
       if (!taken.has(code)) return code;
     }
     return 'S' + Date.now().toString(36).toUpperCase().slice(-5);
@@ -144,8 +144,11 @@ window.Entries = {
   async update(id, patch) {
     const e = await DB.get('entries', id);
     if (!e) return null;
+    const wasApproved = e.status === 'approved';
+    const contentChanged = patch.surah != null || patch.from != null || patch.to != null || patch.notes != null;
     Object.assign(e, patch);
     e.userDate = e.userId + '|' + e.date;
+    if (wasApproved && contentChanged) e.status = 'pending';
     await DB.put('entries', e);
     return e;
   },

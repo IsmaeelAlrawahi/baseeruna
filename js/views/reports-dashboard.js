@@ -35,8 +35,24 @@
     page.appendChild(loadingHost);
 
     try {
-      // جلب جميع التقارير المرسلة من Supabase
-      const reports = await window.SupabaseClient.getAllSubmittedReports();
+      // ── مصدر الحقيقة: حلقة المعلّم الحالي فقط ──────────
+      // كان getAllSubmittedReports يجلب كل حلقات المنصة (تسريب).
+      // الآن: اسحب roster المعلّم أولاً ثم تقارير طلابه فقط.
+      const me = Session.user;
+      let reports = [];
+      let cloudStudents = [];
+      if (window.Sync) {
+        cloudStudents = await window.Sync.pullTeacherRoster(me.id);
+        const ids = cloudStudents.map(s => s.id);
+        if (ids.length) {
+          try { reports = (await window.SupabaseClient.getReportsForUsers(ids) || []).filter(r => r.submitted); }
+          catch (e) { console.warn('[بصائرنا] تعذّر جلب تقارير الحلقة', e); }
+          reports.sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0));
+        }
+        await window.Sync.pullReportsForTeacher(me.id);
+      } else {
+        reports = await window.SupabaseClient.getAllSubmittedReports();
+      }
 
       // إزالة رسالة التحميل
       U.clear(loadingHost);
@@ -55,32 +71,18 @@
         UI.button('تحديث', () => Router.render(), 'ghost', { icon: 'refresh' })
       ));
 
-      // جلب بيانات الطلاب (محليًا + من السحابة حتى يرى المعلم
-      // تقارير طلابه الذين أنشأ حساباتهم على أجهزة أخرى)
+      // جلب بيانات الطلاب (محليًا + roster السحابي)
       const allUsers = await Users.all();
       const usersMap = new Map(allUsers.map(u => [u.id, u]));
-
-      if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
-        try {
-          const cloudStudents = await window.SupabaseClient.getAllStudents();
-          (cloudStudents || []).forEach(su => {
-            if (!usersMap.has(su.id)) {
-              usersMap.set(su.id, {
-                id: su.id, role: 'student',
-                name: su.name || su.id, color: su.color || '#666',
-                teacherId: su.teacherId || null, level: su.level
-              });
-            }
+      (cloudStudents || []).forEach(su => {
+        if (!usersMap.has(su.id)) {
+          usersMap.set(su.id, {
+            id: su.id, role: 'student',
+            name: su.name || su.id, color: su.color || '#666',
+            teacherId: su.teacherId || null, level: su.level
           });
-        } catch (e) {
-          console.warn('[بصائرنا] تعذّر دمج طلاب السحابة', e);
         }
-      }
-
-      // زامن أحدث التقارير من السحابة إلى IndexedDB أولاً (تغذية الأستاذ الراجعة)
-      if (window.Sync && Session.user) {
-        await window.Sync.pullReportsForTeacher(Session.user.id);
-      }
+      });
 
       // تجميع التقارير حسب التاريخ
       const byDate = {};

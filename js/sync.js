@@ -28,23 +28,35 @@ window.Sync = (function () {
     catch (e) { console.warn('[Sync] pushReport فشل', e); return null; }
   }
 
-  /* ── سحب roster المعلّم من السحابة ودمجه محليًا ── */
+  /* ── سحب roster المعلّم من السحابة ودمجه محليًا (يُحدّث الموجودين) ── */
   async function pullTeacherRoster(teacherId) {
     if (!isOnline() || !teacherId) return await Users.students(teacherId);
     try {
       const cloud = await window.SupabaseClient.getUsersByTeacher(teacherId);
-      const have = new Set((await DB.all('users')).map(u => u.id));
+      const locals = await DB.all('users');
+      const byId = new Map(locals.map(u => [u.id, u]));
       for (const s of cloud || []) {
-        if (s.role !== 'student' || have.has(s.id)) continue;
-        await DB.put('users', {
-          id: s.id, role: 'student', name: s.name || '',
-          pin: s.pin != null ? String(s.pin) : '', code: s.code || null,
-          googleSub: s.googleSub || null, googleEmail: s.googleEmail || null,
-          level: s.level != null ? s.level : 1, photo: null,
-          selfSignup: !!s.selfSignup, teacherId: s.teacherId || teacherId,
-          color: s.color || null, createdAt: s.createdAt || Date.now(),
-          lastActiveAt: null, archived: !!s.archived
-        });
+        if (s.role !== 'student') continue;
+        const existing = byId.get(s.id);
+        if (!existing) {
+          await DB.put('users', {
+            id: s.id, role: 'student', name: s.name || '',
+            pin: s.pin != null ? String(s.pin) : '', code: s.code || null,
+            googleSub: s.googleSub || null, googleEmail: s.googleEmail || null,
+            level: s.level != null ? s.level : 1, photo: null,
+            selfSignup: !!s.selfSignup, teacherId: s.teacherId || teacherId,
+            color: s.color || null, createdAt: s.createdAt || Date.now(),
+            lastActiveAt: s.lastActiveAt || null, archived: !!s.archived,
+            updatedAt: s.updatedAt || Date.now()
+          });
+        } else {
+          let changed = false;
+          if (s.name && s.name !== existing.name) { existing.name = s.name; changed = true; }
+          if (s.level != null && s.level !== existing.level) { existing.level = s.level; changed = true; }
+          if (s.code && s.code !== existing.code) { existing.code = s.code; changed = true; }
+          if (s.archived !== existing.archived) { existing.archived = !!s.archived; changed = true; }
+          if (changed) { existing.updatedAt = s.updatedAt || Date.now(); await DB.put('users', existing); }
+        }
       }
     } catch (e) { console.warn('[Sync] pullTeacherRoster فشل', e); }
     return await Users.students(teacherId);
@@ -107,7 +119,11 @@ window.Sync = (function () {
       for (const e of entries) {
         const existing = await DB.get('entries', e.id);
         if (!existing) {
-          try { await DB.put('entries', e); } catch (err) { /* تجاهل تعارض */ }
+          try { await DB.put('entries', e); } catch (err) { /* تجاهل */ }
+        } else if (existing.derivedPages !== e.derivedPages) {
+          existing.derivedPages = e.derivedPages;
+          existing.notes = e.notes;
+          try { await DB.put('entries', existing); } catch (err) { /* تجاهل */ }
         }
       }
     }

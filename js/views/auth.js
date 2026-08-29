@@ -84,6 +84,7 @@
       }
 
       if (!user) { err.textContent = T('codeNotFound'); return; }
+      if (user.archived) { err.textContent = 'الحساب مؤرشف'; return; }
       if (user.pin) askPin(user);
       else enter(user);
     };
@@ -216,6 +217,7 @@
     host.appendChild(el('div.form', {},
       hint, UI.field(T('loginCode'), codeIn),
       UI.button('دخول برمز الحلقة', async () => {
+        if (!window.SupabaseClient?.isConfigured) return UI.toast('السحابة غير مهيأة', 'warn');
         const raw = codeIn.value.trim();
         if (!raw) return UI.toast('اكتب رمز حلقتك أولًا', 'warn');
         const found = await window.SupabaseClient.getUserByCode(raw);
@@ -347,7 +349,18 @@
         { label: T('createAccount'), kind: 'primary', onClick: async a => {
             if (!name.trim()) return UI.toast('اكتب اسمك', 'warn');
 
-            const teacher = await Users.byCode(halaqah);
+            let teacher = await Users.byCode(halaqah);
+            if ((!teacher || teacher.role !== 'teacher') && window.SupabaseClient?.isConfigured) {
+              try {
+                const cloud = await window.SupabaseClient.getUserByCode(halaqah);
+                if (cloud && cloud.role === 'teacher') {
+                  if (!await Users.byId(cloud.id)) {
+                    await DB.put('users', { id: cloud.id, role: 'teacher', name: cloud.name || '', pin: cloud.pin || '', code: cloud.code, googleSub: cloud.googleSub || null, googleEmail: cloud.googleEmail || null, level: cloud.level || 1, photo: null, selfSignup: !!cloud.selfSignup, teacherId: cloud.teacherId || null, color: cloud.color || null, createdAt: cloud.createdAt || Date.now(), lastActiveAt: null, archived: !!cloud.archived });
+                  }
+                  teacher = await Users.byCode(halaqah);
+                }
+              } catch (e) { /* تجاهل */ }
+            }
             if (!teacher || teacher.role !== 'teacher') {
               return UI.toast(T('halaqahNotFound'), 'warn');
             }
@@ -463,6 +476,18 @@
   }
 
   async function enter(user) {
+    if (user.archived) { UI.toast('الحساب مؤرشف', 'warn'); return; }
+    // الطالب على جهاز جديد: اسحب تقاريره من السحابة قبل الدخول
+    if (user.role === 'student' && window.SupabaseClient && window.SupabaseClient.isConfigured) {
+      try {
+        const cloud = await window.SupabaseClient.getReportsForUsers([user.id]) || [];
+        for (const cr of cloud) {
+          const local = { id: cr.id, userId: cr.userId, date: cr.date, userDate: cr.userDate || (cr.userId + '|' + cr.date), quran: cr.quran || {}, poetry: cr.poetry || {}, reading: cr.reading || {}, qiyam: !!cr.qiyam, note: cr.note || '', teacherNote: cr.teacherNote || '', submitted: !!cr.submitted, submittedAt: cr.submittedAt || null, teacherSeen: !!cr.teacherSeen, updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now() };
+          const existing = await DB.get('reports', local.id);
+          if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) await DB.put('reports', local);
+        }
+      } catch (e) { console.warn('[بصائرنا] تعذّر سحب تقارير الطالب', e); }
+    }
     if (user.role === 'teacher' && window.SupabaseClient && window.SupabaseClient.isConfigured) {
       try {
         /* مزامنة-عند-الدخول: نرفع سجل المعلّم نفسه للسحابة حتى

@@ -275,7 +275,7 @@
     try {
       const list = Array.from(new Set(userIds)).filter(Boolean);
       if (!list.length) return [];
-      const inClause = encodeURIComponent(list.join(','));
+      const inClause = list.map(v => encodeURIComponent(v)).join(',');
       const response = await fetch(
         `${API_URL}/reports?userId=in.(${inClause})&order=date.desc&limit=1000`,
         { headers: headers() }

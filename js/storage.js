@@ -140,7 +140,8 @@ window.DB = (function () {
   }
 
   async function put(store, rec) {
-    rec.updatedAt = Date.now();
+    if (rec.updatedAt == null) rec.updatedAt = Date.now();
+    else rec.updatedAt = Math.max(+rec.updatedAt || 0, Date.now() - 1);
     if (mode === 'idb') { await tx(store, 'readwrite', s => s.put(rec)); }
     else { memory[store].set(rec[SCHEMA[store].keyPath], rec); saveLocal(); }
     emit(store, 'put', rec);
@@ -150,7 +151,7 @@ window.DB = (function () {
   async function putAll(store, recs) {
     if (!recs.length) return recs;
     const now = Date.now();
-    recs.forEach(r => { r.updatedAt = now; });
+    recs.forEach(r => { if (r.updatedAt == null) r.updatedAt = now; });
     if (mode === 'idb') await tx(store, 'readwrite', s => { recs.forEach(r => s.put(r)); });
     else { recs.forEach(r => memory[store].set(r[SCHEMA[store].keyPath], r)); saveLocal(); }
     emit(store, 'put', recs);
