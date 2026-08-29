@@ -130,12 +130,17 @@
   });
   window.addEventListener('appinstalled', () => { window.__installPrompt = null; });
 
-  /* ── keep the day fresh when the app is left open ───── */
+  /* ── keep the day fresh — يتحدث كل يوم تلقائيًا حتى لو بقيت الصفحة مفتوحة ── */
   let lastDay = U.todayKey();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (U.todayKey() !== lastDay) { lastDay = U.todayKey(); Router.render(); }
   });
+  // فحص منتصف الليل حتى لو لم يخف التطبيق
+  setInterval(() => {
+    const now = U.todayKey();
+    if (now !== lastDay) { lastDay = now; if (document.visibilityState === 'visible') Router.render(); }
+  }, 60000);
 
   /* ── stop the whole page bouncing while the tree pans ── */
   document.addEventListener('touchmove', ev => {

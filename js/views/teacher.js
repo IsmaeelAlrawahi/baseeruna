@@ -234,8 +234,7 @@
   Router.register('/t/day', {
     role: 'teacher',
     title: () => T('reportsInbox'),
-    render: () => renderDay(ProgramDays.isProgramDay(U.todayKey())
-      ? U.todayKey() : ProgramDays.lastProgramDay(U.todayKey()))
+    render: () => renderDay(U.todayKey())
   });
 
   Router.register('/t/day/:date', {
@@ -331,17 +330,23 @@
     return page;
   }
 
-  /* أيام المتابعة في أسبوع التاريخ المعروض. */
+  /* أيام المتابعة في أسبوع التاريخ المعروض — مع تنقل أسبوعي. */
   function dayStrip(date) {
-    const days = ProgramDays.daysOfWeek(ProgramDays.weekKey(date));
+    const week = ProgramDays.weekKey(date);
+    const days = ProgramDays.daysOfWeek(week);
     const today = U.todayKey();
-    return el('div.weekstrip', {}, days.map(d =>
-      el('a.weekday' + (d === date ? '.is-current' : '') + (d > today ? '.is-future' : ''), {
-        href: d > today ? undefined : '#/t/day/' + d,
-        onclick: d > today ? (e => e.preventDefault()) : null
-      },
-        el('b', {}, ProgramDays.dayName(d)),
-        el('span', {}, U.num(U.parseKey(d).getDate())))));
+    const prevWeek = U.addDays(week, -7);
+    const nextWeek = U.addDays(week, 7);
+    return el('div.weekstrip-wrap', {},
+      el('button.weeknav', { onclick: () => Router.go('/t/day/' + ProgramDays.daysOfWeek(prevWeek)[0] || prevWeek), title: 'الأسبوع السابق' }, '‹'),
+      el('div.weekstrip', {}, days.map(d =>
+        el('a.weekday' + (d === date ? '.is-current' : '') + (d > today ? '.is-future' : ''), {
+          href: '#/t/day/' + d,
+          onclick: d > today ? (e => { e.preventDefault(); UI.toast('التاريخ في المستقبل', 'warn'); }) : null
+        },
+          el('b', {}, ProgramDays.dayName(d)),
+          el('span', {}, U.num(U.parseKey(d).getDate()))))),
+      el('button.weeknav', { onclick: () => Router.go('/t/day/' + (ProgramDays.daysOfWeek(nextWeek)[0] || nextWeek)), title: 'الأسبوع التالي' }, '›'));
   }
 
   /* ══════════════════ REVIEW INBOX ══════════════════════ */

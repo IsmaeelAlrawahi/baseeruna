@@ -14,8 +14,7 @@
   Router.register('/report', {
     role: 'student',
     title: () => T('dailyReport'),
-    render: () => renderReport({ date: ProgramDays.isProgramDay(U.todayKey())
-      ? U.todayKey() : ProgramDays.lastProgramDay(U.todayKey()) })
+    render: () => renderReport({ date: U.todayKey() })
   });
 
   Router.register('/report/:date', {
