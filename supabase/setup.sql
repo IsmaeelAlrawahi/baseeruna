@@ -79,35 +79,35 @@ CREATE INDEX idx_reports_userDate ON public.reports ("userDate");
 CREATE INDEX idx_reports_submitted ON public.reports (submitted);
 
 /* ── الأمان (RLS) ─────────────────────────────────────────────
-   الأعمدة camelCase تحتاج اقتباسًا مزدوجًا في سياسات RLS أيضًا.
+    الأعمدة camelCase تحتاج اقتباسًا مزدوجًا في سياسات RLS أيضًا.
 
-   ⚠ توافق مهم: عميل `js/supabase-client.js` الحالي يرسل مفتاح
-   `anon` العام (بلا تسجيل دخول). لذلك السياسات هنا هي «السماح
-   للجميع» حتى يعمل المشروع فورًا كما كانت النسخة الأولى.
-
-   ⚠ تحذير أمني: هذه السياسات تجعل **مفتاح anon** الموجود في
-   كود المتصفح قادرًا على القراءة والكتابة في الجدول. من حصل على
-   المفتاح المنشور في المستودع يستطيع الكتابة. هذا مقبول للمرحلة
-   الحالية، ويُستبدل لاحقًا بنظام مصادقة Supabase Auth مع سياسات
-   `authenticated` (انظر نهاية هذا الملف).                             */
+    المرحلة الحالية (v35): مركز صغير 2-5 معلمين، العميل يستخدم
+    `anon` بلا Auth. شدّدنا GRANT لـ anon إلى SELECT/INSERT/UPDATE
+    فقط (بلا DELETE) لمنع مسحٍ جماعي لو تسرب المفتاح. دوّر المفتاح
+    من Dashboard → API → Reset anon key ثم ضعه في متغيّر بيئة
+    البناء (انظر js/supabase-client.js). للإنتاج العام فعّل النسخة
+    الآمنة في نهاية الملف مع Supabase Auth.                           */
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 
--- السماح بالقراءة والكتابة للجميع (متوافق مع عميل anon الحالي)
+-- السماح للـ anon بالقراءة/الإدراج/التحديث فقط (بلا حذف) — يمنع مسحًا جماعيًا
+-- عميل المتصفح الحالي يستخدم anon بلا Auth، لذا نبقي الوصول لكن بلا DELETE.
 CREATE POLICY "reports_allow_all" ON public.reports
   FOR ALL USING (true) WITH CHECK (true);
 
--- الصلاحيات لكل الأدوار
-GRANT ALL ON TABLE public.reports TO anon, authenticated, service_role;
+-- anon: بلا حذف — يحمي من مسحٍ جماعي لو تسرب المفتاح
+GRANT SELECT, INSERT, UPDATE ON TABLE public.reports TO anon;
+GRANT ALL ON TABLE public.reports TO authenticated, service_role;
 
 -- ─────────────────────────────────────────────────────────────
--- سياسات جدول users (allow-all بنفس الأسلوب)
+-- سياسات جدول users (نفس المبدأ: anon بلا حذف)
 -- ─────────────────────────────────────────────────────────────
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "users_allow_all" ON public.users
   FOR ALL USING (true) WITH CHECK (true);
 
-GRANT ALL ON TABLE public.users TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.users TO anon;
+GRANT ALL ON TABLE public.users TO authenticated, service_role;
 
 -- تأكيد النجاح
 SELECT 'تم إعداد جدولي reports و users بنجاح' AS status;

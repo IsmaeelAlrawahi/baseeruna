@@ -5,9 +5,9 @@
    ============================================================ */
 
 (function () {
-  // ضع هنا بيانات Supabase الخاصة بك
-  const SUPABASE_URL = 'https://qhokdpssplwhpbcwcoiy.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFob2tkcHNzcGx3aHBiY3djb2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5ODM3ODQsImV4cCI6MjEwMzU1OTc4NH0.HckqSwifVuwVv2tugonv088_2QDh7UucrdX7UF9YkBY';
+  // تُقرأ أولاً من window.__ENV__ (حقن وقت البناء عبر Vercel Env) ثم fallback
+  const SUPABASE_URL = (window.__ENV__ && window.__ENV__.SUPABASE_URL) || 'https://qhokdpssplwhpbcwcoiy.supabase.co';
+  const SUPABASE_ANON_KEY = (window.__ENV__ && window.__ENV__.SUPABASE_ANON_KEY) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFob2tkcHNzcGx3aHBiY3djb2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5ODM3ODQsImV4cCI6MjEwMzU1OTc4NH0.HckqSwifVuwV2tugonv088_2QDh7UucrdX7UF9YkBY';
 
   // التحقق من وجود الإعدادات
   const isConfigured = SUPABASE_URL && SUPABASE_ANON_KEY &&
