@@ -1289,7 +1289,8 @@ window.Reports = {
       qiyam:   false,            /* teacher-only */
       note: '',
       submitted: false, submittedAt: null,
-      teacherNote: '', teacherSeen: false
+      teacherNote: '', teacherSeen: false,
+      updatedAt: Date.now(), createdAt: Date.now()
     };
   },
 
@@ -1314,6 +1315,8 @@ window.Reports = {
       if (patch[k]) patch[k] = Object.assign({}, rec[k], patch[k]);
     });
     Object.assign(rec, patch);
+    rec.updatedAt = Date.now();
+    if (!rec.createdAt) rec.createdAt = rec.updatedAt;
     await DB.put('reports', rec);
 
     /* ── إرسال التقرير إلى Supabase إذا كان معداً ────────── */
