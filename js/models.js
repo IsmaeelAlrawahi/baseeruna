@@ -1310,7 +1310,6 @@ window.Reports = {
 
   async save(userId, date, patch) {
     const rec = await this.get(userId, date);
-    /* Merge one level down so a partial patch keeps the rest. */
     ['quran', 'poetry', 'reading'].forEach(k => {
       if (patch[k]) patch[k] = Object.assign({}, rec[k], patch[k]);
     });
@@ -1318,16 +1317,7 @@ window.Reports = {
     rec.updatedAt = Date.now();
     if (!rec.createdAt) rec.createdAt = rec.updatedAt;
     await DB.put('reports', rec);
-
-    /* ── إرسال التقرير إلى Supabase إذا كان معداً ────────── */
-    if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
-      try {
-        await window.SupabaseClient.saveReport(rec);
-      } catch (e) {
-        console.warn('[Reports] فشل الحفظ في Supabase، محفوظ محلياً فقط:', e);
-      }
-    }
-
+    if (window.Sync) await window.Sync.pushReport(rec);
     return rec;
   },
 

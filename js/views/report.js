@@ -40,32 +40,7 @@
     const isProgramDay = ProgramDays.isProgramDay(date);
     const targets = Object.assign({}, PROGRAM.targets, user.targets || {});
 
-    /* اسحب التقرير المحدد من السحابة قبل العرض (يُصلح خطأً معماريًا
-       كان يختار تقرير تاريخٍ آخر إن لم يُوجد للتاريخ المطلوب). */
-    try {
-      if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
-        const cloud = await window.SupabaseClient.getReportsForUsers([viewingId]);
-        const cr = (cloud || []).find(r => String(r.date) === String(date));
-        if (cr) {
-          const local = {
-            id: cr.id, userId: cr.userId, date: cr.date,
-            userDate: cr.userDate || (cr.userId + '|' + cr.date),
-            quran: cr.quran || {}, poetry: cr.poetry || {},
-            reading: cr.reading || {}, qiyam: !!cr.qiyam,
-            note: cr.note || '', teacherNote: cr.teacherNote || '',
-            submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
-            teacherSeen: !!cr.teacherSeen,
-            updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
-          };
-          const existing = await DB.get('reports', local.id);
-          if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
-            await DB.put('reports', local);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[بصائرنا] تعذّر سحب تقرير الطالب من السحابة', e);
-    }
+    if (window.Sync) await window.Sync.pullReportForStudent(viewingId, date);
 
     let rec = await Reports.get(viewingId, date);
     const [poem, book] = await Promise.all([

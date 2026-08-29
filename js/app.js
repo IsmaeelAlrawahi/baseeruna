@@ -8,48 +8,25 @@
   const app = document.getElementById('app');
 
   try {
-    /* ── auto-update guard (v2: يمسح كل البيانات المحلية) ──
-       Administrative mode: every device must run the newest build
-       from a clean slate. We pin the last build in localStorage
-       (NOT IndexedDB, so it survives a wipe), and whenever the
-       running build differs we:
-         1) wipe ALL local data (IndexedDB + service-worker cache)
-         2) force a full reload
-       This clears any stale student/teacher rows left on devices
-       from earlier experimental versions, so the cloud is the only
-       trusted source going forward. */
+    /* ── auto-update guard (v26: يمسح الكاش فقط) ──────
+       كان v21-v25 يمسح IndexedDB كاملاً عند كل نسخة، فيُفقد
+       roster المعلّم ويُخلق معلّمون مكررون. الآن: Supabase هو
+       مصدر الحقيقة، والمحلي cache فقط، فنمسح cache الخدمة فقط. */
     if ('caches' in window && location.protocol.startsWith('http')) {
       const STORE_KEY = 'basairuna.lastBuildVersion.v2';
       const lastRan = localStorage.getItem(STORE_KEY);
       const thisBuild = CONFIG.app.cacheVersion;
       if (lastRan && lastRan !== thisBuild) {
-        console.info('[بصائرنا] نسخة جديدة (' + thisBuild +
-          '): مسح جميع البيانات المحلية القديمة وإعادة التحميل');
-
-        // 1) امسح كل بيانات IndexedDB (تتضمّن الجدول المحلي).
-        try {
-          const dbs = await indexedDB.databases ? indexedDB.databases() : [];
-          const names = Array.isArray(dbs)
-            ? dbs.map(d => d.name)
-            : ['basairuna'];
-          for (const n of names) indexedDB.deleteDatabase(n);
-        } catch (e) {
-          console.warn('[بصائرنا] تعذّر مسح IndexedDB', e);
-        }
-        // 2) امسح كل كاش الـ service worker.
+        console.info('[بصائرنا] نسخة جديدة (' + thisBuild + '): مسح كاش الخدمة فقط');
         try {
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
-        } catch (e) {
-          console.warn('[بصائرنا] تعذّر مسح الكاش', e);
-        }
-
-        // سجّل النسخة الجديدة في localStorage وأعد التحميل.
+        } catch (e) { console.warn('[بصائرنا] تعذّر مسح الكاش', e); }
         localStorage.setItem(STORE_KEY, thisBuild);
-        setTimeout(() => location.reload(), 150);
-        return;
+        // لا return ولا reload قسري — يكفي أن تُحدّث الملفات في الخلفية.
+      } else {
+        localStorage.setItem(STORE_KEY, thisBuild);
       }
-      localStorage.setItem(STORE_KEY, thisBuild);
     }
 
     /* ── storage ──────────────────────────────────────── */
