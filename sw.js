@@ -8,7 +8,7 @@
    device picks the new version up.
    ============================================================ */
 
-const CACHE = 'basairuna-v13';
+const CACHE = 'basairuna-v14';
 
 /* نصّ المصحف (٢٫٦م) وpdf.js لا يدخلان في التثبيت الأول حتى لا
    يثقُل، بل يُحفظان أول مرة يُفتحان ثم يعملان بلا إنترنت. */
@@ -110,26 +110,34 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  /* Our own files: serve from cache, refresh in the background. */
+  /* Our own files: NETWORK-FIRST (administrative mode).
+     الإدارة تريد أحدث نسخة فورًا عند كل فتح، لذا نقرأ من الشبكة
+     أولًا دائمًا، ونحدّث الكاش أثناء ذلك، ولا نلتجئ إلى النسخة
+     المحفوظة إلا عند فقدان الاتصال (احتياطي فقط). هذا يضمن أن
+     أي تعديل يطرأ على السيرفر يصل لجميع الأجهزة فور مرورهم
+     بتحديث، دون انتظار رفع رقم إصدار يدوي في كل مرة. */
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(req, { ignoreSearch: true });
 
-    const network = fetch(req).then(res => {
-      if (res && res.ok) cache.put(req, res.clone());
+    try {
+      const res = await fetch(req);
+      if (res && res.ok && res.type === 'basic') {
+        cache.put(req, res.clone());
+        return res;
+      }
+      /* Network responded but oddly (e.g. opaque/error): prefer the
+         cached copy when present, otherwise pass the response along. */
+      if (hit) return hit;
       return res;
-    }).catch(() => null);
-
-    if (hit) { network; return hit; }
-
-    const res = await network;
-    if (res) return res;
-
-    /* Offline and never seen: fall back to the app shell so the
-       hash router can still take over. */
-    if (req.mode === 'navigate') {
-      return (await cache.match('./index.html')) || Response.error();
+    } catch (e) {
+      /* Offline: serve the cached copy; for a page navigation fall
+         back to the app shell so the hash router still takes over. */
+      if (hit) return hit;
+      if (req.mode === 'navigate') {
+        return (await cache.match('./index.html')) || Response.error();
+      }
+      return Response.error();
     }
-    return Response.error();
   })());
 });
