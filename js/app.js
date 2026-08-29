@@ -17,13 +17,20 @@
       const lastRan = localStorage.getItem(STORE_KEY);
       const thisBuild = CONFIG.app.cacheVersion;
       if (lastRan && lastRan !== thisBuild) {
-        console.info('[بصائرنا] نسخة جديدة (' + thisBuild + '): مسح كاش الخدمة فقط');
+        console.info('[بصائرنا] نسخة جديدة (' + thisBuild + '): مسح كاش الخدمة وإعادة التحميل');
         try {
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
         } catch (e) { console.warn('[بصائرنا] تعذّر مسح الكاش', e); }
         localStorage.setItem(STORE_KEY, thisBuild);
-        // لا return ولا reload قسري — يكفي أن تُحدّث الملفات في الخلفية.
+        /* لأن الـ service worker يستخدم stale-while-revalidate، كان يعرض
+           ملفات قديمة حتى بعد النسخة الجديدة. نعيد التحميل مرة واحدة هنا
+           حتى يشتغل فعلاً بأحدث الكود (إصلاح الدخول بالكود من الأجهزة الأخرى). */
+        if (sessionStorage.getItem('basairuna.reloaded') !== thisBuild) {
+          sessionStorage.setItem('basairuna.reloaded', thisBuild);
+          location.reload();
+        }
+        return;
       } else {
         localStorage.setItem(STORE_KEY, thisBuild);
       }
