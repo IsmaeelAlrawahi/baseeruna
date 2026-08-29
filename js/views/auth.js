@@ -196,17 +196,47 @@
       type: 'button', onclick: () => showLogin(host)
     }, UI.icon('forward', 16), el('span', {}, T('back'))));
 
-    if (!teachers.length) {
-      host.appendChild(UI.empty('لا يوجد حساب معلّم'));
-      return;
+    if (teachers.length) {
+      host.appendChild(el('p.gate-question', {}, T('teacherEntry')));
+      const grid = el('div.gate-users');
+      teachers.forEach(u => {
+        grid.appendChild(el('button.usercard', { type: 'button', onclick: () => askPin(u) },
+          UI.avatar(u, 52), el('b', {}, u.name)));
+      });
+      host.appendChild(grid);
     }
-    host.appendChild(el('p.gate-question', {}, T('teacherEntry')));
-    const grid = el('div.gate-users');
-    teachers.forEach(u => {
-      grid.appendChild(el('button.usercard', { type: 'button', onclick: () => askPin(u) },
-        UI.avatar(u, 52), el('b', {}, u.name)));
-    });
-    host.appendChild(grid);
+
+    /* ── دخول معلّم من أي جهاز برمز حلقته ────────────────
+       يبحث في السحابة عن المعلّم صاحب الرمز، يخزّنه محليًا
+       ثم يطلب الرقم السري. يَعمَل حتى لو لم يكن محفوظًا على
+       هذا الجهاز من قبل. */
+    const hint = el('p.hint', {}, 'أدخل رمز حلقتك للدخول من هذا الجهاز');
+    const codeIn = UI.input({ placeholder: T('codePlaceholder'), autocapitalize: 'characters' });
+    codeIn.addEventListener('input', () => { codeIn.value = codeIn.value.toUpperCase().replace(/\s/g, ''); });
+    host.appendChild(el('div.form', {},
+      hint, UI.field(T('loginCode'), codeIn),
+      UI.button('دخول برمز الحلقة', async () => {
+        const raw = codeIn.value.trim();
+        if (!raw) return UI.toast('اكتب رمز حلقتك أولًا', 'warn');
+        const found = await window.SupabaseClient.getUserByCode(raw);
+        if (!found || found.role !== 'teacher') {
+          return UI.toast('لا يوجد معلّم بهذا الرمز، أو لم يُرفع حسابه بعد', 'warn');
+        }
+        /* احفظه محليًا ليظهر في القائمة من الآن. */
+        const existing = await Users.byId(found.id);
+        if (!existing) {
+          await DB.put('users', {
+            id: found.id, role: 'teacher', name: found.name || '',
+            pin: found.pin != null ? String(found.pin) : '', code: found.code || null,
+            googleSub: found.googleSub || null, googleEmail: found.googleEmail || null,
+            level: found.level != null ? found.level : 1, photo: null,
+            selfSignup: !!found.selfSignup, teacherId: found.teacherId || null,
+            color: found.color || null, createdAt: found.createdAt || Date.now(),
+            lastActiveAt: null, archived: !!found.archived
+          });
+        }
+        askPin((await Users.byId(found.id)) || found);
+      }, 'primary', { icon: 'forward' })));
   }
 
   /* ══════════════════ Google ════════════════════════════ */
