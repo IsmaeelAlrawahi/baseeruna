@@ -433,10 +433,14 @@
   }
 
   async function enter(user) {
-    /* إن كان معلّمًا، اسحب كل طلابه من السحابة وادمجهم محليًا
-       حتى يرى المعلّم حلقته كاملة حتى لو فتح من جهاز جديد. */
     if (user.role === 'teacher' && window.SupabaseClient && window.SupabaseClient.isConfigured) {
       try {
+        /* مزامنة-عند-الدخول: نرفع سجل المعلّم نفسه للسحابة حتى
+           يكون معرّفًا على كل الأجهزة (يغيّر أي معلّم قديم). */
+        await window.SupabaseClient.upsertUser(user);
+
+        /* اسحب كل طلابه من السحابة وادمجهم محليًا حتى يرى
+           المعلّم حلقته كاملة حتى لو فتح من جهاز جديد. */
         const cloudStudents = await window.SupabaseClient.getUsersByTeacher(user.id);
         const existing = await Users.all();
         const have = new Set(existing.map(u => u.id));
@@ -459,7 +463,7 @@
         }
         if (added) console.info('[بصائرنا] دُمج ' + added + ' طالب من السحابة');
       } catch (e) {
-        console.warn('[بصائرنا] تعذّر دمج طلاب الحلقة من السحابة', e);
+        console.warn('[بصائرنا] تعذّر مزامنة بيانات المعلّم/الحلقة', e);
       }
     }
 
