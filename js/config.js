@@ -12,7 +12,7 @@ window.CONFIG = {
     tagline: 'برنامج متابعة حفظ القرآن الكريم',
     version: '3.4.0',
     /* Bump this to force every device to refresh its cached files. */
-    cacheVersion: 'basairuna-v29'
+    cacheVersion: 'basairuna-v30'
   },
 
   /* ── The 8 leaves on every day of the tree ──────────────────

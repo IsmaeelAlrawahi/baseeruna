@@ -61,23 +61,67 @@ window.Sync = (function () {
     catch (e) { console.warn('[Sync] pullReportsForTeacher فشل', e); return []; }
     for (const cr of cloud) {
       try {
-        const local = {
-          id: cr.id, userId: cr.userId, date: cr.date,
-          userDate: cr.userDate || (cr.userId + '|' + cr.date),
-          quran: cr.quran || {}, poetry: cr.poetry || {},
-          reading: cr.reading || {}, qiyam: !!cr.qiyam,
-          note: cr.note || '', teacherNote: cr.teacherNote || '',
-          submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
-          teacherSeen: !!cr.teacherSeen,
-          updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
-        };
+        const local = reportObject(cr);
         const existing = await DB.get('reports', local.id);
         if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
           await DB.put('reports', local);
         }
       } catch (e) { /* تجاهل سجل معطوب */ }
     }
+    await materializeEntries(cloud);
     return cloud;
+  }
+
+  /* مفتاح دخول ثابت لكل يوم من تقرير: نشتق سجل entries واحد
+     (نوع new للحفظ و review للمراجعة) من تقرير اليوم كي تلتقطه
+     Entries.forUser / coverage / streaks على جهاز المعلّم — فجدول
+     entries لا يُملأ إلا من جهاز الطالب، فيبقى فارغًا عند المعلم. */
+  function reportEntryId(report, type) {
+    return report.userId + '|' + report.date + '|' + type;
+  }
+
+  async function materializeEntries(cloud) {
+    for (const cr of cloud || []) {
+      const q = cr.quran || {};
+      const mem = +(q.memorized || 0);
+      const rev = +(q.reviewed || 0);
+      const entries = [];
+      if (mem > 0) entries.push({
+        id: reportEntryId(cr, 'new'), userId: cr.userId, date: cr.date,
+        userDate: cr.userId + '|' + cr.date, type: 'new',
+        surah: q.surah || 1, from: q.from || 1, to: cr.to || Math.max(1, mem),
+        notes: cr.note || '', voiceId: null, status: 'pending', grade: null,
+        teacherComment: '', reviewedAt: null, reviewedBy: null,
+        createdAt: cr.submittedAt || cr.createdAt || Date.now()
+      });
+      if (rev > 0) entries.push({
+        id: reportEntryId(cr, 'review'), userId: cr.userId, date: cr.date,
+        userDate: cr.userId + '|' + cr.date, type: 'review',
+        surah: q.surah || 1, from: q.from || 1, to: Math.max(1, rev),
+        notes: '', voiceId: null, status: 'pending', grade: null,
+        teacherComment: '', reviewedAt: null, reviewedBy: null,
+        createdAt: cr.submittedAt || cr.createdAt || Date.now()
+      });
+      for (const e of entries) {
+        const existing = await DB.get('entries', e.id);
+        if (!existing) {
+          try { await DB.put('entries', e); } catch (err) { /* تجاهل تعارض */ }
+        }
+      }
+    }
+  }
+
+  function reportObject(cr) {
+    return {
+      id: cr.id, userId: cr.userId, date: cr.date,
+      userDate: cr.userDate || (cr.userId + '|' + cr.date),
+      quran: cr.quran || {}, poetry: cr.poetry || {},
+      reading: cr.reading || {}, qiyam: !!cr.qiyam,
+      note: cr.note || '', teacherNote: cr.teacherNote || '',
+      submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
+      teacherSeen: !!cr.teacherSeen,
+      updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
+    };
   }
 
   /* ── سحب كل تقارير طالب واحد ودمجها محليًا ── */
@@ -88,22 +132,14 @@ window.Sync = (function () {
     catch (e) { console.warn('[Sync] pullAllReportsForStudent فشل', e); return []; }
     for (const cr of cloud) {
       try {
-        const local = {
-          id: cr.id, userId: cr.userId, date: cr.date,
-          userDate: cr.userDate || (cr.userId + '|' + cr.date),
-          quran: cr.quran || {}, poetry: cr.poetry || {},
-          reading: cr.reading || {}, qiyam: !!cr.qiyam,
-          note: cr.note || '', teacherNote: cr.teacherNote || '',
-          submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
-          teacherSeen: !!cr.teacherSeen,
-          updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
-        };
+        const local = reportObject(cr);
         const existing = await DB.get('reports', local.id);
         if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
           await DB.put('reports', local);
         }
       } catch (e) { /* تجاهل سجل معطوب */ }
     }
+    await materializeEntries(cloud);
     return cloud;
   }
 
@@ -114,20 +150,12 @@ window.Sync = (function () {
       const cloud = await window.SupabaseClient.getReportsForUsers([userId]) || [];
       const cr = cloud.find(r => String(r.date) === String(date));
       if (cr) {
-        const local = {
-          id: cr.id, userId: cr.userId, date: cr.date,
-          userDate: cr.userDate || (cr.userId + '|' + cr.date),
-          quran: cr.quran || {}, poetry: cr.poetry || {},
-          reading: cr.reading || {}, qiyam: !!cr.qiyam,
-          note: cr.note || '', teacherNote: cr.teacherNote || '',
-          submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
-          teacherSeen: !!cr.teacherSeen,
-          updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
-        };
+        const local = reportObject(cr);
         const existing = await DB.get('reports', local.id);
         if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
           await DB.put('reports', local);
         }
+        await materializeEntries([cr]);
       }
     } catch (e) { console.warn('[Sync] pullReportForStudent فشل', e); }
     return await Reports.get(userId, date);
