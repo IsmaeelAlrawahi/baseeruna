@@ -231,36 +231,61 @@
   async function renderDay(date) {
     const me = Session.user;
     const page = UI.screen();
-    const students = await Users.students(me.id);
+    let students = await Users.students(me.id);
     const isQiyamDay = ProgramDays.isQiyamDay(date);
 
-    /* اسحب أحدث التقارير من السحابة وادمجها محلياً قبل العرض،
-       حتى يظهر تقرير الطالب وإن أرسله للتوّ من جهازه. */
+    /* ── مزامنة البنية كاملة قبل العرض (v24) ─────────────
+       الخلل المعماري كان أن قائمة الطلاب تُقرأ محليًا فقط.
+       إذا أضاف المعلّم طالبًا من جهاز آخر، أو دخل برمز حلقته
+       من جهاز جديد، تبقى القائمة المحلية قديمة/فارغة فلا
+       تُسحب تقاريرهم أبدًا. لذا نزامن أولًا الطلاب ثم التقارير. */
     try {
-      if (students.length && window.SupabaseClient && window.SupabaseClient.isConfigured) {
-        const ids = students.map(s => s.id);
-        const cloud = await window.SupabaseClient.getReportsForUsers(ids);
-        for (const cr of cloud || []) {
-          try {
-            const local = {
-              id: cr.id, userId: cr.userId, date: cr.date,
-              userDate: cr.userDate || (cr.userId + '|' + cr.date),
-              quran: cr.quran || {}, poetry: cr.poetry || {},
-              reading: cr.reading || {}, qiyam: !!cr.qiyam,
-              note: cr.note || '', teacherNote: cr.teacherNote || '',
-              submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
-              teacherSeen: !!cr.teacherSeen,
-              updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
-            };
-            const existing = await DB.get('reports', local.id);
-            if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
-              await DB.put('reports', local);
-            }
-          } catch (e) { /* تجاهل سجلاً معطوباً */ }
+      if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
+        // 1) زامن roster المعلّم من السحابة
+        try {
+          const cloudStudents = await window.SupabaseClient.getUsersByTeacher(me.id);
+          const haveIds = new Set((await Users.all()).map(u => u.id));
+          for (const s of cloudStudents || []) {
+            if (s.role !== 'student' || haveIds.has(s.id)) continue;
+            await DB.put('users', {
+              id: s.id, role: 'student', name: s.name || '',
+              pin: s.pin != null ? String(s.pin) : '', code: s.code || null,
+              googleSub: s.googleSub || null, googleEmail: s.googleEmail || null,
+              level: s.level != null ? s.level : 1, photo: null,
+              selfSignup: !!s.selfSignup, teacherId: s.teacherId || me.id,
+              color: s.color || null, createdAt: s.createdAt || Date.now(),
+              lastActiveAt: null, archived: !!s.archived
+            });
+          }
+          students = await Users.students(me.id);
+        } catch (e) { console.warn('[بصائرنا] تعذّر مزامنة الطلاب', e); }
+
+        // 2) اسحب كل تقارير طلاب الحلقة وادمجها محليًا
+        if (students.length) {
+          const ids = students.map(s => s.id);
+          const cloud = await window.SupabaseClient.getReportsForUsers(ids);
+          for (const cr of cloud || []) {
+            try {
+              const local = {
+                id: cr.id, userId: cr.userId, date: cr.date,
+                userDate: cr.userDate || (cr.userId + '|' + cr.date),
+                quran: cr.quran || {}, poetry: cr.poetry || {},
+                reading: cr.reading || {}, qiyam: !!cr.qiyam,
+                note: cr.note || '', teacherNote: cr.teacherNote || '',
+                submitted: !!cr.submitted, submittedAt: cr.submittedAt || null,
+                teacherSeen: !!cr.teacherSeen,
+                updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
+              };
+              const existing = await DB.get('reports', local.id);
+              if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
+                await DB.put('reports', local);
+              }
+            } catch (e) { /* تجاهل سجلاً معطوباً */ }
+          }
         }
       }
     } catch (e) {
-      console.warn('[بصائرنا] تعذّر سحب تقارير اليوم من السحابة', e);
+      console.warn('[بصائرنا] تعذّر سحب بيانات اليوم من السحابة', e);
     }
 
     page.appendChild(el('div.report-head', {},

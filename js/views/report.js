@@ -40,12 +40,12 @@
     const isProgramDay = ProgramDays.isProgramDay(date);
     const targets = Object.assign({}, PROGRAM.targets, user.targets || {});
 
-    /* اسحب أحدث التقرير من السحابة قبل العرض حتى يظهر تقرير
-       الطالب حتى لو أرسله للتوّ من جهازه. */
+    /* اسحب التقرير المحدد من السحابة قبل العرض (يُصلح خطأً معماريًا
+       كان يختار تقرير تاريخٍ آخر إن لم يُوجد للتاريخ المطلوب). */
     try {
       if (window.SupabaseClient && window.SupabaseClient.isConfigured) {
         const cloud = await window.SupabaseClient.getReportsForUsers([viewingId]);
-        const cr = (cloud || []).find(r => (r.date || '') === date) || (cloud || [])[0];
+        const cr = (cloud || []).find(r => String(r.date) === String(date));
         if (cr) {
           const local = {
             id: cr.id, userId: cr.userId, date: cr.date,
@@ -58,7 +58,7 @@
             updatedAt: cr.updatedAt || Date.now(), createdAt: cr.createdAt || Date.now()
           };
           const existing = await DB.get('reports', local.id);
-          if (!cr.submitted || !existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
+          if (!existing || (existing.updatedAt || 0) <= (local.updatedAt || 0)) {
             await DB.put('reports', local);
           }
         }
