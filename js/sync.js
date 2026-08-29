@@ -89,16 +89,18 @@ window.Sync = (function () {
       if (mem > 0) entries.push({
         id: reportEntryId(cr, 'new'), userId: cr.userId, date: cr.date,
         userDate: cr.userId + '|' + cr.date, type: 'new',
-        surah: q.surah || 1, from: q.from || 1, to: cr.to || Math.max(1, mem),
-        notes: cr.note || '', voiceId: null, status: 'pending', grade: null,
+        surah: q.surah || 1, from: q.from || 1, to: cr.to || 1,
+        derivedPages: mem, notes: cr.note || '', voiceId: null,
+        status: 'pending', grade: null,
         teacherComment: '', reviewedAt: null, reviewedBy: null,
         createdAt: cr.submittedAt || cr.createdAt || Date.now()
       });
       if (rev > 0) entries.push({
         id: reportEntryId(cr, 'review'), userId: cr.userId, date: cr.date,
         userDate: cr.userId + '|' + cr.date, type: 'review',
-        surah: q.surah || 1, from: q.from || 1, to: Math.max(1, rev),
-        notes: '', voiceId: null, status: 'pending', grade: null,
+        surah: q.surah || 1, from: q.from || 1, to: 1,
+        derivedPages: rev, notes: '', voiceId: null,
+        status: 'pending', grade: null,
         teacherComment: '', reviewedAt: null, reviewedBy: null,
         createdAt: cr.submittedAt || cr.createdAt || Date.now()
       });

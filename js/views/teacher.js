@@ -174,17 +174,21 @@
         : UI.empty(T('noGoal'))
     ], 'card--goal'));
 
-    /* coverage */
-    const cov = await Entries.coverage(s.id);
-    const covApproved = await Entries.coverage(s.id, { onlyApproved: true });
+    /* coverage — مجموع الحفظ الحقيقي من التقارير السحابية (بالصفحات).
+       لا نعتمد على Entries.coverage لأن سجلات شاشة المعلّم مشتقة
+       وقد لا تعكس مقدار التغطية الفعلي. */
+    const memReports = await Reports.forUser(s.id);
+    const totalPages = U.sum(memReports, r => +(r.quran.memorized || 0));
+    const totalReviewed = U.sum(memReports, r => +(r.quran.reviewed || 0));
+    const percent = U.pct(totalPages, QURAN.TOTAL_PAGES || 604);
     page.appendChild(UI.card([
       UI.sectionTitle(T('totalMemorized')),
       el('div.cov', {},
-        UI.ring(cov.percent, { size: 92, label: U.num(cov.percent) + '٪', sub: 'من المصحف' }),
+        UI.ring(percent, { size: 92, label: U.num(totalPages) + ' ص', sub: 'من المصحف' }),
         el('div.cov-figures', {},
-          figure(U.num(cov.pages), T('pages')),
-          figure(U.num(cov.juz), T('juz')),
-          figure(U.num(covApproved.pages), 'معتمد')))
+          figure(U.num(totalPages), T('pages')),
+          figure(U.num(totalReviewed), 'مراجعة'),
+          figure(U.num(memReports.filter(r => r.submitted).length), 'تقرير مُرسل')))
     ], 'card--cov'));
 
     /* entries */
@@ -388,7 +392,10 @@
         el('span.entry-range', {}, `${U.num(e.from)} – ${U.num(e.to)}`),
         UI.badge(type.name || '', 'soft')),
       el('p.entry-sub', {},
-        U.relativeDay(e.date) + ' · ' + T('pagesApprox', U.num(QURAN.pagesOf(e.surah, e.from, e.to)))),
+        U.relativeDay(e.date) + ' · ' +
+        (e.derivedPages
+          ? `${U.num(e.derivedPages)} صفحة`
+          : T('pagesApprox', U.num(QURAN.pagesOf(e.surah, e.from, e.to))))),
       e.notes ? el('p.entry-notes', {}, e.notes) : null,
       e.teacherComment
         ? el('div.entry-comment', {}, el('b', {}, T('teacherComment') + ': '), el('span', {}, e.teacherComment))
